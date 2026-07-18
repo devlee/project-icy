@@ -12,4 +12,7 @@ export * from "./characters/slug";
 export * from "./characters/images";
 export * from "./generation/tasks";
 export * from "./generation/seeds";
+export * from "./generation/pair-sets";
+export * from "./generation/run-form";
 export * from "./generation/run-single";
+export * from "./generation/run-pair";

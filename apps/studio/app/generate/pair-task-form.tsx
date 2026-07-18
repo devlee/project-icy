@@ -1,9 +1,9 @@
 "use client"
 
 import { useActionState, useEffect, useId, useState } from "react"
-import { Sparkles } from "lucide-react"
+import { Layers } from "lucide-react"
 
-import { submitSingleTaskAction, type ActionResult } from "./actions"
+import { submitPairTaskAction, type ActionResult } from "./actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -42,50 +42,13 @@ import {
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-
-export type CharacterOption = {
-  id: string
-  name: string
-  status: string
-  origin: string
-  tagline: string
-  profile: string
-  animeAnchorPath: string | null
-  realAnchorPath: string | null
-}
+import type { CharacterOption } from "./single-task-form"
 
 function contentUrl(path: string) {
   return `/api/content/${path.split("/").map(encodeURIComponent).join("/")}`
 }
 
-export type WorkflowOption = {
-  id: string
-  name: string
-  basePrompt: string
-  baseNegativePrompt: string
-}
-
-function mergePrompts(base: string | undefined, user: string | undefined): string {
-  const b = base?.trim() ?? ""
-  const u = user?.trim() ?? ""
-  if (!b && !u) return ""
-  if (!b) return u
-  if (!u) return b
-  return `${b}, ${u}`
-}
-
-/** Match core run-single: tagline + extra only (never freeform profile/notes). */
-function buildUserPrompt(tagline: string, extra: string): string {
-  return [tagline.trim(), extra.trim()].filter(Boolean).join(", ")
-}
-
-export function SingleTaskForm({
-  characters,
-  workflows,
-}: {
-  characters: CharacterOption[]
-  workflows: WorkflowOption[]
-}) {
+export function PairTaskForm({ characters }: { characters: CharacterOption[] }) {
   const formId = useId()
   const active = characters.filter((c) => c.status !== "archived")
   const [characterId, setCharacterId] = useState(active[0]?.id ?? "")
@@ -95,7 +58,7 @@ export function SingleTaskForm({
   const [count, setCount] = useState("1")
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [state, action, pending] = useActionState(
-    submitSingleTaskAction,
+    submitPairTaskAction,
     null as ActionResult | null,
   )
 
@@ -107,24 +70,12 @@ export function SingleTaskForm({
     if (state?.ok) setConfirmOpen(false)
   }, [state])
 
-  const selectedCharacter = active.find((c) => c.id === characterId)
-  const hasRef = Boolean(selectedCharacter?.animeAnchorPath)
-  // Hidden field records intent; server auto-switches to IP-Adapter when an anchor exists.
-  const workflowId = hasRef
-    ? "anime-txt2img-ipadapter"
-    : (workflows[0]?.id ?? "anime-txt2img-stub")
-  const selectedWorkflow = workflows.find((w) => w.id === workflows[0]?.id)
-  const characterLabel = selectedCharacter
-    ? `${selectedCharacter.name}${selectedCharacter.origin === "ip_reference" ? " · IP" : ""}`
+  const selected = active.find((c) => c.id === characterId)
+  const characterLabel = selected
+    ? `${selected.name}${selected.origin === "ip_reference" ? " · IP" : ""}`
     : "选择角色"
-  const modeLabel = hasRef ? "IP-Adapter + 参考图" : "纯文字 txt2img"
-
-  const userPrompt = buildUserPrompt(selectedCharacter?.tagline ?? "", extraPrompt)
-  const positivePrompt = mergePrompts(
-    selectedWorkflow?.basePrompt,
-    userPrompt || "1girl",
-  )
-  const negativePrompt = mergePrompts(selectedWorkflow?.baseNegativePrompt, undefined)
+  const hasAnime = Boolean(selected?.animeAnchorPath)
+  const hasReal = Boolean(selected?.realAnchorPath)
   const seedSummary =
     seedKind === "fixed" ? `固定 seed ${seed || "0"}` : `随机 ×${count || "1"}`
 
@@ -132,8 +83,8 @@ export function SingleTaskForm({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>单张任务</CardTitle>
-          <CardDescription>先在角色库创建角色，再回来提交生成</CardDescription>
+          <CardTitle>成对任务</CardTitle>
+          <CardDescription>先在角色库创建角色</CardDescription>
         </CardHeader>
       </Card>
     )
@@ -144,13 +95,13 @@ export function SingleTaskForm({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            单张任务
+            成对任务
             <Badge variant="secondary" className="font-normal">
-              v0.1
+              v0.3
             </Badge>
           </CardTitle>
           <CardDescription>
-            有 anime 基准时自动走 IP-Adapter 锁定外貌；无基准则纯文字生成
+            共享 seed：先 anime 再 real，写入 PairSet（筛选台下一阶段）
           </CardDescription>
         </CardHeader>
         <form
@@ -179,23 +130,20 @@ export function SingleTaskForm({
                   </SelectContent>
                 </Select>
                 <FieldDescription>
-                  {hasRef
-                    ? "已设置 anime 基准 · 生成时将使用 IP-Adapter"
-                    : "尚未上传基准 · 请先到角色库上传参考图"}
+                  anime 基准 {hasAnime ? "✓" : "—（纯文字）"} · real 基准{" "}
+                  {hasReal ? "✓" : "—（纯文字 photoreal）"}
                 </FieldDescription>
               </Field>
 
-              <input type="hidden" name="animeWorkflowId" value={workflowId} />
-
               <Field>
-                <FieldLabel htmlFor="extraPrompt">额外提示词</FieldLabel>
+                <FieldLabel htmlFor="pairExtraPrompt">额外提示词</FieldLabel>
                 <Textarea
-                  id="extraPrompt"
+                  id="pairExtraPrompt"
                   name="extraPrompt"
-                  rows={3}
+                  rows={2}
                   value={extraPrompt}
                   onChange={(e) => setExtraPrompt(e.target.value)}
-                  placeholder="姿势、场景、服装…（叠加在角色设定之后）"
+                  placeholder="姿势、场景…（两侧共用）"
                 />
               </Field>
 
@@ -217,9 +165,9 @@ export function SingleTaskForm({
                 </Field>
                 {seedKind === "fixed" ? (
                   <Field>
-                    <FieldLabel htmlFor="seed">Seed</FieldLabel>
+                    <FieldLabel htmlFor="pairSeed">Seed</FieldLabel>
                     <Input
-                      id="seed"
+                      id="pairSeed"
                       name="seed"
                       type="number"
                       min={0}
@@ -229,9 +177,9 @@ export function SingleTaskForm({
                   </Field>
                 ) : (
                   <Field>
-                    <FieldLabel htmlFor="count">数量</FieldLabel>
+                    <FieldLabel htmlFor="pairCount">数量</FieldLabel>
                     <Input
-                      id="count"
+                      id="pairCount"
                       name="count"
                       type="number"
                       min={1}
@@ -261,9 +209,9 @@ export function SingleTaskForm({
               {pending ? (
                 <Spinner data-icon="inline-start" />
               ) : (
-                <Sparkles data-icon="inline-start" />
+                <Layers data-icon="inline-start" />
               )}
-              {pending ? "提交中…" : "提交单张任务"}
+              {pending ? "提交中…" : "提交成对任务"}
             </Button>
           </CardFooter>
         </form>
@@ -272,43 +220,44 @@ export function SingleTaskForm({
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="sm:max-w-lg" showCloseButton={!pending}>
           <DialogHeader>
-            <DialogTitle>确认生成任务</DialogTitle>
+            <DialogTitle>确认成对任务</DialogTitle>
             <DialogDescription>
-              {characterLabel} · {modeLabel} · {seedSummary}
+              {characterLabel} · default-pair · {seedSummary}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground">参考图</span>
-              {hasRef && selectedCharacter?.animeAnchorPath ? (
-                <div className="flex items-center gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-muted-foreground">Anime 参考</span>
+                {hasAnime && selected?.animeAnchorPath ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={contentUrl(selectedCharacter.animeAnchorPath)}
-                    alt="参考"
-                    className="size-16 rounded-md border object-cover"
+                    src={contentUrl(selected.animeAnchorPath)}
+                    alt="anime"
+                    className="aspect-3/2 w-full rounded-md border object-cover"
                   />
-                  <span className="font-mono text-xs text-muted-foreground break-all">
-                    {selectedCharacter.animeAnchorPath}
-                  </span>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">未设置参考图（仅文字 prompt）</p>
-              )}
+                ) : (
+                  <p className="text-xs text-muted-foreground">未设置（纯文字）</p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-muted-foreground">Real 参考</span>
+                {hasReal && selected?.realAnchorPath ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={contentUrl(selected.realAnchorPath)}
+                    alt="real"
+                    className="aspect-3/2 w-full rounded-md border object-cover"
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground">未设置（纯文字）</p>
+                )}
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground">Positive</span>
-              <pre className="max-h-40 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs whitespace-pre-wrap break-words">
-                {positivePrompt || "（空）"}
-              </pre>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground">Negative</span>
-              <pre className="max-h-28 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs whitespace-pre-wrap break-words">
-                {negativePrompt || "（空）"}
-              </pre>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              每 seed 依次跑 anime → real，共享 seed；完成后写入 pending PairSet。
+            </p>
           </div>
 
           <DialogFooter>
@@ -319,7 +268,7 @@ export function SingleTaskForm({
               {pending ? (
                 <Spinner data-icon="inline-start" />
               ) : (
-                <Sparkles data-icon="inline-start" />
+                <Layers data-icon="inline-start" />
               )}
               {pending ? "提交中…" : "确认提交"}
             </Button>

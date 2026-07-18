@@ -207,10 +207,12 @@ describe("runSingleGenerationTask", () => {
     const generation: GenerationAdapter = {
       ping: async () => ({ ok: true }),
       run: async (req) => {
-        expect(req.inputImages).toEqual([{ name: `icy-ref-${task.id}.png`, data: refBytes }]);
+        expect(req.inputImages).toEqual([
+          { name: `icy-ref-anime-${task.id}.png`, data: refBytes },
+        ]);
         expect(
           (req.workflow["10"] as { inputs: { image: string } }).inputs.image,
-        ).toBe(`icy-ref-${task.id}.png`);
+        ).toBe(`icy-ref-anime-${task.id}.png`);
         expect(req.workflow["12"]).toBeTruthy();
         return {
           images: [{ filename: "out.png", data: Buffer.from([1]) }],

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { UserRound } from "lucide-react"
 import type { CharacterListItem } from "@icy/core"
-import type { CharacterStatus } from "@icy/shared"
+import type { CharacterStatus, Form } from "@icy/shared"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -26,7 +26,7 @@ import {
   CharacterOriginFilter,
   type OriginFilter,
 } from "./character-origin-filter"
-import { UploadAnimeAnchor } from "./upload-anime-anchor"
+import { UploadAnchor } from "./upload-anchor"
 
 function contentUrl(path: string) {
   return `/api/content/${path.split("/").map(encodeURIComponent).join("/")}`
@@ -49,31 +49,34 @@ const STATUS_LABEL: Record<CharacterStatus, string> = {
   archived: "封存",
 }
 
-function AnimeAnchorPreview({ path }: { path: string | null }) {
+function AnchorPreview({ path, form }: { path: string | null; form: Form }) {
+  const label = form.toUpperCase()
   if (path) {
     return (
       <div className="relative aspect-3/2 overflow-hidden rounded-lg border">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={contentUrl(path)}
-          alt="anime 主基准"
+          alt={`${form} 主基准`}
           className="size-full object-cover"
         />
         <span className="absolute bottom-1 left-1 rounded bg-background/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-          ANIME
+          {label}
         </span>
       </div>
     )
   }
   return (
-    <Empty className="aspect-3/2 rounded-lg border border-dashed p-4">
+    <Empty className="aspect-3/2 rounded-lg border border-dashed p-3">
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <UserRound />
         </EmptyMedia>
-        <EmptyTitle className="text-sm">尚无 anime 基准</EmptyTitle>
+        <EmptyTitle className="text-sm">尚无 {form} 基准</EmptyTitle>
         <EmptyDescription className="text-xs">
-          上传参考图后，生成中心可用 IP-Adapter 锁定外貌
+          {form === "anime"
+            ? "二次元参考 · IP-Adapter"
+            : "真人参考 · IP-Adapter"}
         </EmptyDescription>
       </EmptyHeader>
     </Empty>
@@ -104,7 +107,7 @@ export function CharactersGallery({
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((c) => (
             <Card key={c.id} className={c.status === "archived" ? "opacity-60" : undefined}>
               <CardHeader>
@@ -129,22 +132,30 @@ export function CharactersGallery({
                       </Badge>
                     )}
                   </span>
-                  <span>
+                  <span className="line-clamp-2">
                     {c.tagline || c.profile || (
                       <span className="font-mono text-xs">{c.slug}</span>
                     )}
                   </span>
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                <AnimeAnchorPreview path={c.animeAnchorPath} />
-                <UploadAnimeAnchor characterId={c.id} />
+              <CardContent className="flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1.5">
+                    <AnchorPreview path={c.animeAnchorPath} form="anime" />
+                    <UploadAnchor characterId={c.id} form="anime" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <AnchorPreview path={c.realAnchorPath} form="real" />
+                    <UploadAnchor characterId={c.id} form="real" />
+                  </div>
+                </div>
               </CardContent>
               <CardFooter className="flex-wrap gap-3 text-xs text-muted-foreground">
                 <span className="tabular-nums">
-                  基准 {c.animeAnchorPath ? "✓" : "—"}
+                  双基准 {c.hasDualAnchors ? "✓" : "—"}
                 </span>
-                <span className="tabular-nums">FaceID ×{c.faceIdRefCount}</span>
+                <span className="tabular-nums">Pair ×{c.pairSetCount}</span>
                 <span className="tabular-nums">LoRA ×{c.loraCount}</span>
                 <div className="ml-auto">
                   <CharacterStatusSelect id={c.id} status={c.status} />

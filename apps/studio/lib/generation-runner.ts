@@ -1,4 +1,8 @@
-import { runSingleGenerationTask } from "@icy/core";
+import {
+  getGenerationTask,
+  runPairGenerationTask,
+  runSingleGenerationTask,
+} from "@icy/core";
 import { getDb } from "./db";
 import { getGeneration, getQueue, getStorage } from "./services";
 
@@ -13,11 +17,19 @@ export function enqueueGenerationTask(taskId: string): void {
     .add(
       async () => {
         try {
-          await runSingleGenerationTask(taskId, {
-            db: getDb(),
+          const db = getDb();
+          const task = getGenerationTask(db, taskId);
+          if (!task) return;
+          const deps = {
+            db,
             generation: getGeneration(),
             storage: getStorage(),
-          });
+          };
+          if (task.type === "pair") {
+            await runPairGenerationTask(taskId, deps);
+          } else {
+            await runSingleGenerationTask(taskId, deps);
+          }
         } finally {
           enqueued.delete(taskId);
         }

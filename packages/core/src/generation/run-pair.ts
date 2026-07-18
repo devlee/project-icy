@@ -3,15 +3,17 @@ import type { GenerationAdapter } from "../ports/generation";
 import type { StorageAdapter } from "../ports/storage";
 import type { IcyDb } from "../db/client";
 import { characters } from "../db/schema";
-import { getPrimaryAnimeAnchor } from "../characters/images";
-import { expandSeeds } from "./seeds";
+import {
+  getPrimaryAnimeAnchor,
+  getPrimaryRealAnchor,
+} from "../characters/images";
+import { createPairSet } from "./pair-sets";
 import {
   buildUserPrompt,
   resolveFormWorkflowId,
   runFormOnce,
-  WORKFLOW_ANIME_IPADAPTER,
-  WORKFLOW_ANIME_TXT2IMG,
 } from "./run-form";
+import { expandSeeds } from "./seeds";
 import {
   GenerationTaskError,
   getGenerationTask,
@@ -20,12 +22,7 @@ import {
   markTaskRunning,
 } from "./tasks";
 
-/** @deprecated Use WORKFLOW_ANIME_* from run-form */
-export const WORKFLOW_TXT2IMG = WORKFLOW_ANIME_TXT2IMG;
-/** @deprecated Use WORKFLOW_ANIME_* from run-form */
-export const WORKFLOW_IPADAPTER = WORKFLOW_ANIME_IPADAPTER;
-
-export type RunSingleTaskDeps = {
+export type RunPairTaskDeps = {
   db: IcyDb;
   generation: GenerationAdapter;
   storage: StorageAdapter;
@@ -34,19 +31,18 @@ export type RunSingleTaskDeps = {
 };
 
 /**
- * Execute a queued `single` generation task end-to-end.
- * Marks running → done/failed; writes images under raw/tasks/{taskId}/.
- * With an anime anchor, uses IP-Adapter workflow and uploads the reference.
+ * Execute a queued `pair` task: for each seed run anime then real (shared seed),
+ * write PairSet rows, mark done/failed.
  */
-export async function runSingleGenerationTask(
+export async function runPairGenerationTask(
   taskId: string,
-  deps: RunSingleTaskDeps,
+  deps: RunPairTaskDeps,
 ): Promise<void> {
   const { db, generation, storage } = deps;
   const task = getGenerationTask(db, taskId);
   if (!task) throw new GenerationTaskError("任务不存在", "not_found");
-  if (task.type !== "single") {
-    throw new GenerationTaskError("仅支持 single 任务", "validation");
+  if (task.type !== "pair") {
+    throw new GenerationTaskError("仅支持 pair 任务", "validation");
   }
   if (task.status === "cancelled") return;
   if (task.status !== "queued") {
@@ -65,15 +61,28 @@ export async function runSingleGenerationTask(
     return;
   }
 
-  const anchor = getPrimaryAnimeAnchor(db, character.id);
-  const workflowId = resolveFormWorkflowId(
+  const animeAnchor = getPrimaryAnimeAnchor(db, character.id);
+  const realAnchor = getPrimaryRealAnchor(db, character.id);
+  const animeWorkflowId = resolveFormWorkflowId(
     "anime",
-    Boolean(anchor),
+    Boolean(animeAnchor),
     task.params.animeWorkflowId,
   );
+  const realWorkflowId = resolveFormWorkflowId(
+    "real",
+    Boolean(realAnchor),
+    task.params.realWorkflowId,
+  );
+
   const seeds = expandSeeds(task.params.seedStrategy);
   const userPrompt = buildUserPrompt(character.tagline, task.params.extraPrompt);
   const outputKeys: string[] = [];
+  const formDeps = {
+    generation,
+    storage,
+    workflowsDir: deps.workflowsDir,
+    signal: deps.signal,
+  };
 
   try {
     for (const seed of seeds) {
@@ -81,19 +90,41 @@ export async function runSingleGenerationTask(
         throw new Error("生成已取消");
       }
 
-      const key = await runFormOnce(
+      const animeImagePath = await runFormOnce(
         {
           taskId,
           form: "anime",
-          workflowId,
+          workflowId: animeWorkflowId,
           userPrompt,
           seed,
-          anchor,
-          outputName: "00",
+          anchor: animeAnchor,
+          outputName: "anime",
         },
-        { generation, storage, workflowsDir: deps.workflowsDir, signal: deps.signal },
+        formDeps,
       );
-      outputKeys.push(key);
+      outputKeys.push(animeImagePath);
+
+      const realImagePath = await runFormOnce(
+        {
+          taskId,
+          form: "real",
+          workflowId: realWorkflowId,
+          userPrompt,
+          seed,
+          anchor: realAnchor,
+          outputName: "real",
+        },
+        formDeps,
+      );
+      outputKeys.push(realImagePath);
+
+      createPairSet(db, {
+        taskId,
+        characterId: character.id,
+        seed,
+        animeImagePath,
+        realImagePath,
+      });
     }
 
     markTaskDone(db, taskId, outputKeys);

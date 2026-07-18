@@ -118,6 +118,24 @@ export function getPrimaryAnimeAnchor(
   return images.find((i) => i.kind === "faceid_ref") ?? null;
 }
 
+/**
+ * Reference image for real-form generation: primary real anchor, else first real
+ * anchor, else any faceid_ref.
+ */
+export function getPrimaryRealAnchor(
+  db: IcyDb,
+  characterId: string,
+): CharacterImageRow | null {
+  const images = listCharacterImages(db, characterId);
+  const primary = images.find(
+    (i) => i.kind === "anchor" && i.form === "real" && i.isPrimary,
+  );
+  if (primary) return primary;
+  const real = images.find((i) => i.kind === "anchor" && i.form === "real");
+  if (real) return real;
+  return images.find((i) => i.kind === "faceid_ref") ?? null;
+}
+
 export function deleteCharacterImage(db: IcyDb, id: string) {
   const row = db.select().from(characterImages).where(eq(characterImages.id, id)).get();
   if (!row) throw new CharacterImageError("图片不存在", "not_found");

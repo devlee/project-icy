@@ -27,6 +27,8 @@ export type CharacterListItem = {
   hasDualAnchors: boolean;
   /** Content-relative path of primary (or first) anime anchor, if any. */
   animeAnchorPath: string | null;
+  /** Content-relative path of primary (or first) real anchor, if any. */
+  realAnchorPath: string | null;
 };
 
 export type CreateCharacterInput = {
@@ -155,6 +157,23 @@ export function listCharacters(db: IcyDb): CharacterListItem[] {
     }
   }
 
+  const realAnchorPaths = new Map<string, string>();
+  const realAnchorRows = db
+    .select({
+      characterId: characterImages.characterId,
+      filePath: characterImages.filePath,
+      isPrimary: characterImages.isPrimary,
+    })
+    .from(characterImages)
+    .where(and(eq(characterImages.kind, "anchor"), eq(characterImages.form, "real")))
+    .orderBy(desc(characterImages.isPrimary))
+    .all();
+  for (const row of realAnchorRows) {
+    if (!realAnchorPaths.has(row.characterId)) {
+      realAnchorPaths.set(row.characterId, row.filePath);
+    }
+  }
+
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -169,6 +188,7 @@ export function listCharacters(db: IcyDb): CharacterListItem[] {
     pairSetCount: pairs.get(r.id) ?? 0,
     hasDualAnchors: (animeAnchors.get(r.id) ?? 0) > 0 && (realAnchors.get(r.id) ?? 0) > 0,
     animeAnchorPath: animeAnchorPaths.get(r.id) ?? null,
+    realAnchorPath: realAnchorPaths.get(r.id) ?? null,
   }));
 }
 

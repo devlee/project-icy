@@ -8,6 +8,7 @@ import {
   CharacterImageError,
   deleteCharacterImage,
   getPrimaryAnimeAnchor,
+  getPrimaryRealAnchor,
   listCharacterImages,
 } from "./images";
 
@@ -59,6 +60,19 @@ describe("character images", () => {
     });
     expect(getPrimaryAnimeAnchor(db, characterId)?.filePath).toBe(
       "characters/rin/face.png",
+    );
+  });
+
+  it("resolves primary real anchor", () => {
+    addCharacterImage(db, {
+      characterId,
+      kind: "anchor",
+      form: "real",
+      filePath: "characters/rin/real.png",
+      isPrimary: true,
+    });
+    expect(getPrimaryRealAnchor(db, characterId)?.filePath).toBe(
+      "characters/rin/real.png",
     );
   });
 

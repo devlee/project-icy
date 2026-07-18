@@ -18,6 +18,7 @@ export async function GET(request: Request) {
     params: {
       seedStrategy: t.params.seedStrategy,
       animeWorkflowId: t.params.animeWorkflowId,
+      realWorkflowId: t.params.realWorkflowId,
       extraPrompt: t.params.extraPrompt,
       outputKeys: t.params.outputKeys,
     },

@@ -18,6 +18,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item"
 import { getDb } from "@/lib/db"
+import { PairTaskForm } from "./pair-task-form"
 import { SingleTaskForm } from "./single-task-form"
 import { TaskQueue, type TaskQueueItem } from "./task-queue"
 
@@ -31,8 +32,8 @@ export default function GeneratePage() {
     tagline: c.tagline,
     profile: c.profile,
     animeAnchorPath: c.animeAnchorPath,
+    realAnchorPath: c.realAnchorPath,
   }))
-  // Confirm dialog only needs txt2img base prompts; IP-Adapter shares the same bases.
   const workflows = defaultWorkflowRegistry.workflows
     .filter((w) => w.id === "anime-txt2img-stub")
     .map((w) => ({
@@ -50,6 +51,7 @@ export default function GeneratePage() {
     params: {
       seedStrategy: t.params.seedStrategy,
       animeWorkflowId: t.params.animeWorkflowId,
+      realWorkflowId: t.params.realWorkflowId,
       extraPrompt: t.params.extraPrompt,
       outputKeys: t.params.outputKeys,
     },
@@ -58,29 +60,13 @@ export default function GeneratePage() {
 
   return (
     <main className="grid flex-1 gap-4 p-4 lg:grid-cols-[minmax(360px,480px)_1fr]">
-      <SingleTaskForm characters={characters} workflows={workflows} />
+      <div className="flex flex-col gap-4">
+        <SingleTaskForm characters={characters} workflows={workflows} />
+        <PairTaskForm characters={characters} />
+      </div>
 
       <div className="flex flex-col gap-4">
         <TaskQueue initialTasks={tasks} />
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              成对任务
-              <Badge variant="outline" className="font-normal">
-                下一阶段
-              </Badge>
-            </CardTitle>
-            <CardDescription>
-              共享 seed / pose / FaceID，一键产出双形态 PairSet（编排未接通）
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              单张闭环就绪后，将在此提交成对任务并写入筛选队列。
-            </p>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader>

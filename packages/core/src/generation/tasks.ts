@@ -32,6 +32,17 @@ export type CreateSingleTaskInput = {
   priority?: number;
 };
 
+export type CreatePairTaskInput = {
+  characterId: string;
+  seedStrategy: GenerationParams["seedStrategy"];
+  /** Defaults to `default-pair` registry entry. */
+  pairConfigId?: string;
+  animeWorkflowId?: string;
+  realWorkflowId?: string;
+  extraPrompt?: string;
+  priority?: number;
+};
+
 export class GenerationTaskError extends Error {
   constructor(
     message: string,
@@ -97,6 +108,53 @@ export function createSingleGenerationTask(db: IcyDb, input: CreateSingleTaskInp
     .values({
       id,
       type: "single",
+      status: "queued",
+      characterId,
+      params,
+      priority,
+    })
+    .run();
+
+  return getGenerationTask(db, id)!;
+}
+
+export function createPairGenerationTask(db: IcyDb, input: CreatePairTaskInput) {
+  const characterId = input.characterId.trim();
+  if (!characterId) throw new GenerationTaskError("须选择角色", "validation");
+
+  const character = db.select().from(characters).where(eq(characters.id, characterId)).get();
+  if (!character) throw new GenerationTaskError("角色不存在", "not_found");
+
+  const pairConfigId = input.pairConfigId?.trim() || "default-pair";
+  const pairConfig = defaultWorkflowRegistry.pairConfigs.find((c) => c.id === pairConfigId);
+  if (!pairConfig) {
+    throw new GenerationTaskError(`未知 pairConfig: ${pairConfigId}`, "validation");
+  }
+
+  const animeWorkflowId = input.animeWorkflowId?.trim() || pairConfig.animeWorkflowId;
+  const realWorkflowId = input.realWorkflowId?.trim() || pairConfig.realWorkflowId;
+  if (!getWorkflowById(defaultWorkflowRegistry, animeWorkflowId)) {
+    throw new GenerationTaskError(`未知 anime workflow: ${animeWorkflowId}`, "validation");
+  }
+  if (!getWorkflowById(defaultWorkflowRegistry, realWorkflowId)) {
+    throw new GenerationTaskError(`未知 real workflow: ${realWorkflowId}`, "validation");
+  }
+
+  const seedStrategy = normalizeSeedStrategy(input.seedStrategy);
+  const params: GenerationParams = {
+    seedStrategy,
+    factorIds: [],
+    animeWorkflowId,
+    realWorkflowId,
+    extraPrompt: input.extraPrompt?.trim() || undefined,
+  };
+
+  const id = nanoid();
+  const priority = input.priority ?? 10;
+  db.insert(generationTasks)
+    .values({
+      id,
+      type: "pair",
       status: "queued",
       characterId,
       params,

@@ -33,3 +33,6 @@
 - 角色一致性：`character_images` CRUD（主基准）+ 角色库上传 anime 基准；`anime-txt2img-ipadapter` workflow；单张生成有参考图时自动上传并走 IP-Adapter；Studio `GET /api/content/[...path]` 预览
 - Fixed: IP-Adapter workflow 的 `weight_type` 改回 Cloud 合法值 `standard`（误用 Advanced 节点的 `linear` 会导致 400）
 - Changed: IP-Adapter 默认改为 `PLUS FACE`、weight `1.15`、`style transfer`；芙宁娜 tagline 改为 Illustrious 可用英文外观标签
+- 成对生成 MVP：`createPairGenerationTask` + `runPairGenerationTask`（共享 seed：anime→real）写入 `pair_sets`；RealVisXL + IP-Adapter workflow；角色库 real 主基准上传；生成中心成对表单与队列双缩略图
+- Fixed: 角色基准上传放宽到 100MB，并提高 Next Server Actions `bodySizeLimit`（默认 1MB 会拒大图）
+- 筛选写回 MVP：`reviewPairSet` / `getReviewStats`；Studio `/review` 接真实 PairSet，快捷键 J/K、1–5、Enter/X/H 写回；淘汰不删文件

@@ -39,6 +39,7 @@ export type TaskQueueItem = {
   params: {
     seedStrategy: { kind: "fixed"; seed: number } | { kind: "random"; count: number }
     animeWorkflowId: string
+    realWorkflowId?: string
     extraPrompt?: string
     outputKeys?: string[]
   }
@@ -64,11 +65,23 @@ const STATUS_VARIANT: Record<
   cancelled: "outline",
 }
 
+function contentUrl(path: string) {
+  return `/api/content/${path.split("/").map(encodeURIComponent).join("/")}`
+}
+
 function seedDetail(params: TaskQueueItem["params"]): string {
   if (params.seedStrategy.kind === "fixed") {
     return `seed ${params.seedStrategy.seed}`
   }
   return `随机 ×${params.seedStrategy.count}`
+}
+
+function pairThumbs(keys: string[] | undefined) {
+  if (!keys?.length) return null
+  const anime = keys.find((k) => k.includes("/anime."))
+  const real = keys.find((k) => k.includes("/real."))
+  if (!anime && !real) return null
+  return { anime, real }
 }
 
 export function TaskQueue({ initialTasks }: { initialTasks: TaskQueueItem[] }) {
@@ -137,63 +150,86 @@ export function TaskQueue({ initialTasks }: { initialTasks: TaskQueueItem[] }) {
             <EmptyHeader>
               <EmptyTitle className="text-sm">暂无任务</EmptyTitle>
               <EmptyDescription className="text-xs">
-                提交左侧单张任务后会出现在这里
+                提交单张或成对任务后会出现在这里
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
           <ItemGroup className="gap-1">
-            {tasks.map((t) => (
-              <Item key={t.id} variant="muted" size="sm">
-                <ItemMedia variant="icon">
-                  {t.status === "running" ? <Spinner /> : <Clock />}
-                </ItemMedia>
-                <ItemContent>
-                  <ItemTitle>
-                    {t.characterName}
-                    <span className="font-mono text-xs font-normal text-muted-foreground">
-                      single · {seedDetail(t.params)}
-                      {t.params.extraPrompt
-                        ? ` · ${t.params.extraPrompt.slice(0, 24)}${t.params.extraPrompt.length > 24 ? "…" : ""}`
-                        : ""}
-                    </span>
-                  </ItemTitle>
-                  {t.error ? (
-                    <p className="text-xs text-destructive line-clamp-2">{t.error}</p>
-                  ) : null}
-                  {t.status === "done" && t.params.outputKeys?.length ? (
-                    <p className="font-mono text-[10px] text-muted-foreground">
-                      {t.params.outputKeys.length} 张 · {t.params.outputKeys[0]}
-                    </p>
-                  ) : null}
-                </ItemContent>
-                <ItemActions>
-                  <Badge variant={STATUS_VARIANT[t.status]}>{STATUS_LABEL[t.status]}</Badge>
-                  {t.status === "queued" ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={pendingId === t.id}
-                      onClick={() => onCancel(t.id)}
-                    >
-                      <X data-icon="inline-start" />
-                      取消
-                    </Button>
-                  ) : null}
-                  {t.status === "failed" || t.status === "cancelled" ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={pendingId === t.id}
-                      onClick={() => onRetry(t.id)}
-                    >
-                      <RotateCcw data-icon="inline-start" />
-                      重试
-                    </Button>
-                  ) : null}
-                </ItemActions>
-              </Item>
-            ))}
+            {tasks.map((t) => {
+              const thumbs = t.type === "pair" ? pairThumbs(t.params.outputKeys) : null
+              return (
+                <Item key={t.id} variant="muted" size="sm">
+                  <ItemMedia variant="icon">
+                    {t.status === "running" ? <Spinner /> : <Clock />}
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>
+                      {t.characterName}
+                      <span className="font-mono text-xs font-normal text-muted-foreground">
+                        {t.type} · {seedDetail(t.params)}
+                        {t.params.extraPrompt
+                          ? ` · ${t.params.extraPrompt.slice(0, 24)}${t.params.extraPrompt.length > 24 ? "…" : ""}`
+                          : ""}
+                      </span>
+                    </ItemTitle>
+                    {t.error ? (
+                      <p className="text-xs text-destructive line-clamp-2">{t.error}</p>
+                    ) : null}
+                    {t.status === "done" && thumbs ? (
+                      <div className="mt-1 flex gap-1.5">
+                        {thumbs.anime ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={contentUrl(thumbs.anime)}
+                            alt="anime"
+                            className="size-12 rounded border object-cover"
+                          />
+                        ) : null}
+                        {thumbs.real ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={contentUrl(thumbs.real)}
+                            alt="real"
+                            className="size-12 rounded border object-cover"
+                          />
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {t.status === "done" && !thumbs && t.params.outputKeys?.length ? (
+                      <p className="font-mono text-[10px] text-muted-foreground">
+                        {t.params.outputKeys.length} 张 · {t.params.outputKeys[0]}
+                      </p>
+                    ) : null}
+                  </ItemContent>
+                  <ItemActions>
+                    <Badge variant={STATUS_VARIANT[t.status]}>{STATUS_LABEL[t.status]}</Badge>
+                    {t.status === "queued" ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={pendingId === t.id}
+                        onClick={() => onCancel(t.id)}
+                      >
+                        <X data-icon="inline-start" />
+                        取消
+                      </Button>
+                    ) : null}
+                    {t.status === "failed" || t.status === "cancelled" ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={pendingId === t.id}
+                        onClick={() => onRetry(t.id)}
+                      >
+                        <RotateCcw data-icon="inline-start" />
+                        重试
+                      </Button>
+                    ) : null}
+                  </ItemActions>
+                </Item>
+              )
+            })}
           </ItemGroup>
         )}
       </CardContent>

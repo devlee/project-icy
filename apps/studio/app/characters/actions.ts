@@ -9,8 +9,8 @@ import {
   createCharacter,
   updateCharacter,
 } from "@icy/core";
-import type { CharacterOrigin, CharacterStatus } from "@icy/shared";
-import { CHARACTER_ORIGINS, CHARACTER_STATUSES } from "@icy/shared";
+import type { CharacterOrigin, CharacterStatus, Form } from "@icy/shared";
+import { CHARACTER_ORIGINS, CHARACTER_STATUSES, FORMS } from "@icy/shared";
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
 import { getStorage } from "@/lib/services";
@@ -90,8 +90,8 @@ export async function uploadCharacterAnchorAction(
     if (!file.type.startsWith("image/")) {
       return { ok: false, error: "仅支持图片文件" };
     }
-    if (file.size > 12 * 1024 * 1024) {
-      return { ok: false, error: "图片不能超过 12MB" };
+    if (file.size > 100 * 1024 * 1024) {
+      return { ok: false, error: "图片不能超过 100MB" };
     }
 
     const ext =
@@ -101,14 +101,20 @@ export async function uploadCharacterAnchorAction(
     const safeExt = [".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(ext)
       ? ext
       : ".png";
-    const key = `characters/${characterId}/anchors/anime/${randomBytes(10).toString("hex")}${safeExt}`;
+    const formRaw = String(formData.get("form") ?? "anime");
+    if (!(FORMS as readonly string[]).includes(formRaw)) {
+      return { ok: false, error: "无效形态" };
+    }
+    const form = formRaw as Form;
+
+    const key = `characters/${characterId}/anchors/${form}/${randomBytes(10).toString("hex")}${safeExt}`;
     const bytes = Buffer.from(await file.arrayBuffer());
     await getStorage().put(key, bytes);
 
     addCharacterImage(getDb(), {
       characterId,
       kind: "anchor",
-      form: "anime",
+      form,
       filePath: key,
       isPrimary: true,
       note: file.name,
