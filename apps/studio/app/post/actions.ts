@@ -1,8 +1,9 @@
 "use server";
 
-import { createPostTask, PostTaskError } from "@icy/core";
+import { AssetError, createPostTask, PostTaskError, runEnhancePairSet } from "@icy/core";
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
+import { getImageCompose, getStorage } from "@/lib/services";
 
 export type ActionResult =
   | { ok: true; queued: number }
@@ -31,6 +32,24 @@ export async function composeSelectedAction(ids: string[]): Promise<ActionResult
     return { ok: true, queued: unique.length };
   } catch (e) {
     if (e instanceof PostTaskError) return { ok: false, error: e.message };
+    throw e;
+  }
+}
+
+/** Optional local Sharp enhance (not Comfy face-fix). */
+export async function enhancePairSetAction(id: string): Promise<ActionResult> {
+  try {
+    const pairSetId = id.trim();
+    if (!pairSetId) return { ok: false, error: "须指定 PairSet" };
+    await runEnhancePairSet(pairSetId, {
+      db: getDb(),
+      storage: getStorage(),
+      compose: getImageCompose(),
+    });
+    revalidatePath("/post");
+    return { ok: true, queued: 1 };
+  } catch (e) {
+    if (e instanceof AssetError) return { ok: false, error: e.message };
     throw e;
   }
 }

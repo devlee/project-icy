@@ -1,5 +1,5 @@
 import { UserRound } from "lucide-react"
-import { listCharacters } from "@icy/core"
+import { listCharacterFactorIds, listCharacters, listFactors } from "@icy/core"
 
 export const dynamic = "force-dynamic"
 
@@ -16,7 +16,17 @@ import { CreateCharacterDialog } from "./create-character-dialog"
 import { CharactersGallery } from "./characters-gallery"
 
 export default function CharactersPage() {
-  const characters = listCharacters(getDb())
+  const db = getDb()
+  const characters = listCharacters(db)
+  const factors = listFactors(db, { enabled: true }).map((f) => ({
+    id: f.id,
+    category: f.category,
+    name: f.name,
+    enabled: f.enabled,
+  }))
+  const factorIdsByCharacter = Object.fromEntries(
+    characters.map((c) => [c.id, listCharacterFactorIds(db, c.id)]),
+  )
   const featured = characters.filter((c) => c.status === "featured").length
   const active = characters.filter((c) => c.status !== "archived")
   const originals = characters.filter((c) => c.origin === "original").length
@@ -49,7 +59,11 @@ export default function CharactersPage() {
           </EmptyContent>
         </Empty>
       ) : (
-        <CharactersGallery characters={characters} />
+        <CharactersGallery
+          characters={characters}
+          factors={factors}
+          factorIdsByCharacter={factorIdsByCharacter}
+        />
       )}
     </main>
   )

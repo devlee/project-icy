@@ -7,6 +7,7 @@ import {
   getPrimaryAnimeAnchor,
   getPrimaryRealAnchor,
 } from "../characters/images";
+import { getPose } from "../poses/poses";
 import { createPairSet } from "./pair-sets";
 import {
   buildUserPrompt,
@@ -63,15 +64,24 @@ export async function runPairGenerationTask(
 
   const animeAnchor = getPrimaryAnimeAnchor(db, character.id);
   const realAnchor = getPrimaryRealAnchor(db, character.id);
+  const pose = task.params.poseId ? getPose(db, task.params.poseId) : null;
+  if (task.params.poseId && !pose) {
+    markTaskFailed(db, taskId, `姿势不存在: ${task.params.poseId}`);
+    return;
+  }
+  const poseFilePath = pose?.filePath ?? null;
+  const hasPose = Boolean(poseFilePath);
   const animeWorkflowId = resolveFormWorkflowId(
     "anime",
     Boolean(animeAnchor),
     task.params.animeWorkflowId,
+    hasPose,
   );
   const realWorkflowId = resolveFormWorkflowId(
     "real",
     Boolean(realAnchor),
     task.params.realWorkflowId,
+    hasPose,
   );
 
   const outputKeys: string[] = [];
@@ -131,6 +141,7 @@ export async function runPairGenerationTask(
           negativePrompt,
           seed,
           anchor: animeAnchor,
+          poseFilePath,
           outputName: "anime",
         },
         formDeps,
@@ -146,6 +157,7 @@ export async function runPairGenerationTask(
           negativePrompt,
           seed,
           anchor: realAnchor,
+          poseFilePath,
           outputName: "real",
         },
         formDeps,

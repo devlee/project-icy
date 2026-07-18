@@ -4,6 +4,8 @@ import { useActionState, useEffect, useId, useState } from "react"
 import { Layers } from "lucide-react"
 
 import { submitPairTaskAction, type ActionResult } from "./actions"
+import { FactorPicker, type FactorOption } from "./factor-picker"
+import { PoseSelect, type PoseOption } from "./pose-picker"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -48,7 +50,15 @@ function contentUrl(path: string) {
   return `/api/content/${path.split("/").map(encodeURIComponent).join("/")}`
 }
 
-export function PairTaskForm({ characters }: { characters: CharacterOption[] }) {
+export function PairTaskForm({
+  characters,
+  factors,
+  poses,
+}: {
+  characters: CharacterOption[]
+  factors: FactorOption[]
+  poses: PoseOption[]
+}) {
   const formId = useId()
   const active = characters.filter((c) => c.status !== "archived")
   const characterItems = active.map((character) => ({
@@ -60,6 +70,8 @@ export function PairTaskForm({ characters }: { characters: CharacterOption[] }) 
   const [extraPrompt, setExtraPrompt] = useState("")
   const [seed, setSeed] = useState("42")
   const [count, setCount] = useState("1")
+  const [factorIds, setFactorIds] = useState<string[]>([])
+  const [poseId, setPoseId] = useState("")
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [state, action, pending] = useActionState(
     submitPairTaskAction,
@@ -71,7 +83,11 @@ export function PairTaskForm({ characters }: { characters: CharacterOption[] }) 
   }, [active, characterId])
 
   useEffect(() => {
-    if (state?.ok) setConfirmOpen(false)
+    if (state?.ok) {
+      setConfirmOpen(false)
+      setFactorIds([])
+      setPoseId("")
+    }
   }, [state])
 
   const selected = active.find((c) => c.id === characterId)
@@ -82,6 +98,13 @@ export function PairTaskForm({ characters }: { characters: CharacterOption[] }) 
   const hasReal = Boolean(selected?.realAnchorPath)
   const seedSummary =
     seedKind === "fixed" ? `固定 seed ${seed || "0"}` : `随机 ×${count || "1"}`
+  const factorSummary =
+    factorIds.length > 0
+      ? factors
+          .filter((f) => factorIds.includes(f.id))
+          .map((f) => f.name)
+          .join(" · ")
+      : "无因子"
 
   if (active.length === 0) {
     return (
@@ -150,6 +173,15 @@ export function PairTaskForm({ characters }: { characters: CharacterOption[] }) 
                   placeholder="姿势、场景…（两侧共用）"
                 />
               </Field>
+
+              <FactorPicker
+                factors={factors}
+                selectedIds={factorIds}
+                onChange={setFactorIds}
+                description="按分类浏览；仅启用因子可选"
+              />
+
+              <PoseSelect poses={poses} value={poseId} onChange={setPoseId} />
 
               <Field orientation="responsive">
                 <Field>
@@ -226,7 +258,7 @@ export function PairTaskForm({ characters }: { characters: CharacterOption[] }) 
           <DialogHeader>
             <DialogTitle>确认成对任务</DialogTitle>
             <DialogDescription>
-              {characterLabel} · default-pair · {seedSummary}
+              {characterLabel} · default-pair · {seedSummary} · {factorSummary}
             </DialogDescription>
           </DialogHeader>
 

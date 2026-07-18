@@ -1,6 +1,15 @@
 # Portal（前台门户）
 
-> 占位。阶段 1 中期启动（见 `docs/product-design.md` §3）。
->
-> 技术栈已定：Next.js 静态导出，图片 R2 + CDN，部署 Vercel/CF Pages。
-> 内容来自 Studio 的「发布到门户」动作，schema 见 `@icy/shared` 的 `PortalContentPack`。
+Next.js 静态导出站。内容来自 Studio「发布到门户」写出的 `content/portal/pack.json`（`PortalContentPack`）。
+
+## 开发
+
+```bash
+# 先在 Studio 排期页导出门户包，再：
+pnpm --filter portal dev     # http://localhost:3312
+pnpm --filter portal build   # 输出 out/
+```
+
+可选环境变量：`ICY_CONTENT_ROOT`、`ICY_PORTAL_PACK`、`ICY_PORTAL_BRAND`（占位品牌名）。
+
+图片 URL 在本地包中指向 Studio `/api/content/...`；上线前需换成 CDN/R2 地址或同源代理。

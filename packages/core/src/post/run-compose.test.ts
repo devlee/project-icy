@@ -51,6 +51,7 @@ describe("runComposePairSet", () => {
     };
 
     const compose: ImageComposePort = {
+      enhanceImage: async ({ image }) => ({ data: image, width: 8, height: 8 }),
       composeSideBySide: async () => ({
         composite: { data: Buffer.from("c"), width: 200, height: 100 },
         platforms: [
@@ -120,6 +121,7 @@ describe("runComposePairSet", () => {
           localPath: () => null,
         },
         compose: {
+          enhanceImage: async ({ image }) => ({ data: image, width: 8, height: 8 }),
           composeSideBySide: async () => ({
             composite: { data: Buffer.from([]), width: 1, height: 1 },
             platforms: [],

@@ -6,6 +6,20 @@
 
 ### Added
 
+- Pose 库 + ControlNet MVP：`poses` CRUD、20 占位预设、成对/系列选型；`ControlNetLoader`/`ControlNetApplyAdvanced` + IP-Adapter 组合 workflow；运行时上传骨架并注入
+- 角色默认因子绑定（`character_factors`）+ 成对任务自动合并；真人参考优先消费筛选 `F` 提升的 FaceID 图（仍走 IP-Adapter）
+- 后期可选本地 Sharp 增强（锐化 → `enhanced` 资产）；不阻塞拼版
+- Portal v0：静态五页 + Studio「发布到门户」导出 `content/portal/pack.json`（`PortalContentPack`）
+- 运维清单 `docs/ops-checklist.md`（含 30 分钟 SOP）
+
+### Changed
+
+### Fixed
+
+## [0.2.0] - 2026-07-18
+
+### Added
+
 - Monorepo 骨架：pnpm workspaces（`apps/studio`、`apps/portal` 占位；`packages/shared`、`packages/core`、`packages/adapters`）
 - 数据模型（Drizzle + SQLite，13 张表）：角色库（含基准图/FaceID 参考/LoRA/因子绑定）、因子库、pose 库、系列与批次配置、生成/后期任务、PairSet 成对结果、成品资产、发布计划
 - 端口接口（`@icy/core/ports`）：StorageAdapter / GenerationAdapter / QueueAdapter；本地实现（`@icy/adapters`）：文件系统存储、进程内优先级队列
@@ -48,3 +62,5 @@
 - Fixed: ComfyUI 在提交 prompt 前建立 WebSocket，避免快速任务丢完成事件；超时主动调用 `/interrupt`
 - Fixed: 随机任务在创建时固化 concrete seeds；Pair/Batch 重试跳过已完成 seed，成品资产按稳定输出键幂等写入，避免半途失败后重复记录
 - 后期任务持久化：新增 `post_tasks` 与迁移 `0002_*`，拼版改由伴生 worker 执行；排队/运行/失败状态与错误在后期页可见，重启不再静默丢任务
+- 筛选 Pro：Space 大图模式（A/R 单侧放大）+ `B`/`F` 提升为角色基准 / FaceID 参考（`promotePairSetImage`，经 StorageAdapter 复制到 `characters/`，幂等）
+- 因子库 MVP：`factors` CRUD + 32 条预设导入；生成中心「因子库」Tab；成对/系列表单多选因子；任务队列展示因子名

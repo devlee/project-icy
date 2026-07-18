@@ -12,8 +12,12 @@ import { loadWorkflowJson } from "../workflows/load";
 
 export const WORKFLOW_ANIME_TXT2IMG = "anime-txt2img-stub";
 export const WORKFLOW_ANIME_IPADAPTER = "anime-txt2img-ipadapter";
+export const WORKFLOW_ANIME_CONTROLNET = "anime-txt2img-controlnet";
+export const WORKFLOW_ANIME_IPADAPTER_CONTROLNET = "anime-txt2img-ipadapter-controlnet";
 export const WORKFLOW_REAL_TXT2IMG = "real-txt2img-stub";
 export const WORKFLOW_REAL_IPADAPTER = "real-txt2img-ipadapter";
+export const WORKFLOW_REAL_CONTROLNET = "real-txt2img-controlnet";
+export const WORKFLOW_REAL_IPADAPTER_CONTROLNET = "real-txt2img-ipadapter-controlnet";
 
 /** Prompt fragments: tagline + extra only (never freeform profile notes). */
 export function buildUserPrompt(tagline: string, extra?: string): string {
@@ -31,19 +35,52 @@ export function refUploadName(taskId: string, filePath: string, form: Form): str
   return `icy-ref-${form}-${taskId}${ext}`;
 }
 
+export function poseUploadName(taskId: string, filePath: string): string {
+  const dot = filePath.lastIndexOf(".");
+  const ext =
+    dot > 0 &&
+    [".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(filePath.slice(dot).toLowerCase())
+      ? filePath.slice(dot).toLowerCase()
+      : ".png";
+  return `icy-pose-${taskId}${ext}`;
+}
+
+/**
+ * Pick workflow for form given anchor + pose presence.
+ * Preferred id is ignored when it conflicts with required inputs (e.g. IP-Adapter w/o ref).
+ */
 export function resolveFormWorkflowId(
   form: Form,
   hasAnchor: boolean,
   preferredId?: string,
+  hasPose = false,
 ): string {
   if (form === "anime") {
+    if (hasPose && hasAnchor) return WORKFLOW_ANIME_IPADAPTER_CONTROLNET;
+    if (hasPose) return WORKFLOW_ANIME_CONTROLNET;
     if (hasAnchor) return WORKFLOW_ANIME_IPADAPTER;
-    // Never run IP-Adapter graph without a reference image.
-    if (preferredId && preferredId !== WORKFLOW_ANIME_IPADAPTER) return preferredId;
+    if (
+      preferredId &&
+      preferredId !== WORKFLOW_ANIME_IPADAPTER &&
+      preferredId !== WORKFLOW_ANIME_IPADAPTER_CONTROLNET &&
+      preferredId !== WORKFLOW_ANIME_CONTROLNET
+    ) {
+      return preferredId;
+    }
     return WORKFLOW_ANIME_TXT2IMG;
   }
+
+  if (hasPose && hasAnchor) return WORKFLOW_REAL_IPADAPTER_CONTROLNET;
+  if (hasPose) return WORKFLOW_REAL_CONTROLNET;
   if (hasAnchor) return WORKFLOW_REAL_IPADAPTER;
-  if (preferredId && preferredId !== WORKFLOW_REAL_IPADAPTER) return preferredId;
+  if (
+    preferredId &&
+    preferredId !== WORKFLOW_REAL_IPADAPTER &&
+    preferredId !== WORKFLOW_REAL_IPADAPTER_CONTROLNET &&
+    preferredId !== WORKFLOW_REAL_CONTROLNET
+  ) {
+    return preferredId;
+  }
   return WORKFLOW_REAL_TXT2IMG;
 }
 
@@ -62,6 +99,8 @@ export type RunFormOnceInput = {
   negativePrompt?: string;
   seed: number;
   anchor: CharacterImageRow | null;
+  /** Content-relative path to OpenPose/skeleton image, if any. */
+  poseFilePath?: string | null;
   /** Filename stem under raw/tasks/{taskId}/seed-{seed}/ */
   outputName: string;
 };
@@ -77,10 +116,11 @@ export async function runFormOnce(
   const def = getWorkflowById(defaultWorkflowRegistry, input.workflowId);
   if (!def) throw new Error(`未知 workflow: ${input.workflowId}`);
 
-  const { inputImages, faceIdImageName } = await prepareReference(
+  const { inputImages, faceIdImageName, poseImageName } = await prepareInputs(
     input.taskId,
     input.form,
     input.anchor,
+    input.poseFilePath,
     deps.storage,
   );
 
@@ -90,6 +130,7 @@ export async function runFormOnce(
     negativePrompt: mergePrompts(def.baseNegativePrompt, input.negativePrompt),
     seed: input.seed,
     faceIdImageName,
+    poseImageName,
   });
 
   const result = await deps.generation.run(
@@ -112,21 +153,43 @@ export function getWorkflowDef(id: string): WorkflowDefinition | undefined {
   return getWorkflowById(defaultWorkflowRegistry, id);
 }
 
-async function prepareReference(
+async function prepareInputs(
   taskId: string,
   form: Form,
   anchor: CharacterImageRow | null,
+  poseFilePath: string | null | undefined,
   storage: StorageAdapter,
 ): Promise<{
   inputImages: { name: string; data: Buffer }[];
   faceIdImageName?: string;
+  poseImageName?: string;
 }> {
-  if (!anchor) return { inputImages: [] };
-  try {
-    const data = await storage.get(anchor.filePath);
-    const name = refUploadName(taskId, anchor.filePath, form);
-    return { inputImages: [{ name, data }], faceIdImageName: name };
-  } catch {
-    throw new Error(`无法读取角色参考图: ${anchor.filePath}`);
+  const inputImages: { name: string; data: Buffer }[] = [];
+  let faceIdImageName: string | undefined;
+  let poseImageName: string | undefined;
+
+  if (anchor) {
+    try {
+      const data = await storage.get(anchor.filePath);
+      const name = refUploadName(taskId, anchor.filePath, form);
+      inputImages.push({ name, data });
+      faceIdImageName = name;
+    } catch {
+      throw new Error(`无法读取角色参考图: ${anchor.filePath}`);
+    }
   }
+
+  const posePath = poseFilePath?.trim();
+  if (posePath) {
+    try {
+      const data = await storage.get(posePath);
+      const name = poseUploadName(taskId, posePath);
+      inputImages.push({ name, data });
+      poseImageName = name;
+    } catch {
+      throw new Error(`无法读取姿势骨架图: ${posePath}`);
+    }
+  }
+
+  return { inputImages, faceIdImageName, poseImageName };
 }

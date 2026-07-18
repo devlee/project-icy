@@ -29,6 +29,7 @@ export async function runComposePairSet(
   if (pair.postProcessStatus === "composed") {
     throw new AssetError("该 PairSet 已完成拼版", "conflict");
   }
+  // Accept raw or enhanced (optional local sharpen step).
 
   let anime: Buffer;
   let real: Buffer;

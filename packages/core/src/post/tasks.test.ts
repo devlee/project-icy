@@ -73,6 +73,7 @@ describe("post tasks", () => {
       localPath: () => null,
     };
     const compose: ImageComposePort = {
+      enhanceImage: async ({ image }) => ({ data: image, width: 8, height: 8 }),
       composeSideBySide: async () => ({
         composite: { data: Buffer.from("c"), width: 2, height: 1 },
         platforms: [],
@@ -105,6 +106,7 @@ describe("post tasks", () => {
         localPath: () => null,
       },
       compose: {
+        enhanceImage: async ({ image }) => ({ data: image, width: 8, height: 8 }),
         composeSideBySide: async () => ({
           composite: { data: Buffer.from([]), width: 1, height: 1 },
           platforms: [],

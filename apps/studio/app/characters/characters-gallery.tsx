@@ -26,6 +26,10 @@ import {
   CharacterOriginFilter,
   type OriginFilter,
 } from "./character-origin-filter"
+import {
+  CharacterFactorsButton,
+  type FactorBindOption,
+} from "./character-factors"
 import { UploadAnchor } from "./upload-anchor"
 
 function contentUrl(path: string) {
@@ -85,8 +89,12 @@ function AnchorPreview({ path, form }: { path: string | null; form: Form }) {
 
 export function CharactersGallery({
   characters,
+  factors = [],
+  factorIdsByCharacter = {},
 }: {
   characters: CharacterListItem[]
+  factors?: FactorBindOption[]
+  factorIdsByCharacter?: Record<string, string[]>
 }) {
   const [filter, setFilter] = useState<OriginFilter>("all")
   const counts = {
@@ -157,6 +165,11 @@ export function CharactersGallery({
                 </span>
                 <span className="tabular-nums">Pair ×{c.pairSetCount}</span>
                 <span className="tabular-nums">LoRA ×{c.loraCount}</span>
+                <CharacterFactorsButton
+                  characterId={c.id}
+                  factors={factors}
+                  selectedIds={factorIdsByCharacter[c.id] ?? []}
+                />
                 <div className="ml-auto">
                   <CharacterStatusSelect id={c.id} status={c.status} />
                 </div>

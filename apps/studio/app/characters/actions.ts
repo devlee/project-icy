@@ -4,9 +4,11 @@ import { randomBytes } from "node:crypto";
 import {
   CharacterError,
   CharacterImageError,
+  FactorError,
   addCharacterImage,
   archiveCharacter,
   createCharacter,
+  setCharacterFactors,
   updateCharacter,
 } from "@icy/core";
 import type { CharacterOrigin, CharacterStatus, Form } from "@icy/shared";
@@ -125,6 +127,23 @@ export async function uploadCharacterAnchorAction(
     return { ok: true };
   } catch (e) {
     if (e instanceof CharacterImageError || e instanceof CharacterError) {
+      return { ok: false, error: e.message };
+    }
+    throw e;
+  }
+}
+
+export async function setCharacterFactorsAction(
+  characterId: string,
+  factorIds: string[],
+): Promise<ActionResult> {
+  try {
+    setCharacterFactors(getDb(), characterId.trim(), factorIds);
+    revalidatePath("/characters");
+    revalidatePath("/generate");
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof FactorError || e instanceof CharacterError) {
       return { ok: false, error: e.message };
     }
     throw e;

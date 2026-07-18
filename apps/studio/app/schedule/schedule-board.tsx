@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Check, Copy, Layers } from "lucide-react"
+import { Check, Copy, Globe, Layers } from "lucide-react"
 import type { Platform, PublishStatus } from "@icy/shared"
 
 import {
@@ -11,6 +11,7 @@ import {
   updatePlanCaptionAction,
   type ActionResult,
 } from "./actions"
+import { exportPortalPackAction } from "./export-portal-action"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -209,6 +210,28 @@ export function ScheduleBoard({
           <span className="font-mono text-[10px] text-muted-foreground">
             日耗 {stats.dailyBurn}
           </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => {
+              setFormError(null)
+              setFormOk(null)
+              startTransition(async () => {
+                const res = await exportPortalPackAction()
+                if (!res.ok) {
+                  setFormError(res.error)
+                  return
+                }
+                setFormOk(
+                  `已导出门户包 ${res.packPath}（角色 ${res.characters} · 画廊 ${res.galleryItems}）`,
+                )
+              })
+            }}
+          >
+            <Globe data-icon="inline-start" />
+            发布到门户
+          </Button>
         </div>
       </div>
 

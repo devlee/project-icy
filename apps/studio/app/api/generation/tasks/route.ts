@@ -1,4 +1,4 @@
-import { listGenerationTasks } from "@icy/core";
+import { listGenerationTasks, resolveFactorNames } from "@icy/core";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 
@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const limit = Number(url.searchParams.get("limit") ?? 40);
-  const tasks = listGenerationTasks(getDb(), {
+  const db = getDb();
+  const tasks = listGenerationTasks(db, {
     limit: Number.isFinite(limit) ? limit : 40,
   }).map((t) => ({
     id: t.id,
@@ -21,6 +22,8 @@ export async function GET(request: Request) {
       realWorkflowId: t.params.realWorkflowId,
       extraPrompt: t.params.extraPrompt,
       outputKeys: t.params.outputKeys,
+      factorIds: t.params.factorIds,
+      factorNames: resolveFactorNames(db, t.params.factorIds ?? []),
     },
     createdAt: t.createdAt.toISOString(),
   }));

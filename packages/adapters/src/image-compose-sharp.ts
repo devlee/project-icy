@@ -114,4 +114,16 @@ export class SharpImageCompose implements ImageComposePort {
 
     return { composite, platforms };
   }
+
+  async enhanceImage(input: { image: Buffer }) {
+    const out = await sharp(input.image)
+      .sharpen({ sigma: 0.8 })
+      .png()
+      .toBuffer({ resolveWithObject: true });
+    return {
+      data: out.data,
+      width: out.info.width,
+      height: out.info.height,
+    };
+  }
 }

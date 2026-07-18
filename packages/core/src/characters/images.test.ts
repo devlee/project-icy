@@ -63,7 +63,7 @@ describe("character images", () => {
     );
   });
 
-  it("resolves primary real anchor", () => {
+  it("prefers faceid_ref over real anchor", () => {
     addCharacterImage(db, {
       characterId,
       kind: "anchor",
@@ -71,8 +71,14 @@ describe("character images", () => {
       filePath: "characters/rin/real.png",
       isPrimary: true,
     });
+    addCharacterImage(db, {
+      characterId,
+      kind: "faceid_ref",
+      form: "real",
+      filePath: "characters/rin/face.png",
+    });
     expect(getPrimaryRealAnchor(db, characterId)?.filePath).toBe(
-      "characters/rin/real.png",
+      "characters/rin/face.png",
     );
   });
 

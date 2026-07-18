@@ -24,6 +24,8 @@ export type AddCharacterImageInput = {
   filePath: string;
   isPrimary?: boolean;
   note?: string;
+  /** Set when promoted from a PairSet generation result. */
+  sourcePairSetId?: string | null;
 };
 
 export class CharacterImageError extends Error {
@@ -94,6 +96,7 @@ export function addCharacterImage(db: IcyDb, input: AddCharacterImageInput) {
       filePath,
       isPrimary,
       note: input.note?.trim() ?? "",
+      sourcePairSetId: input.sourcePairSetId?.trim() || null,
     })
     .run();
 
@@ -119,21 +122,25 @@ export function getPrimaryAnimeAnchor(
 }
 
 /**
- * Reference image for real-form generation: primary real anchor, else first real
- * anchor, else any faceid_ref.
+ * Reference image for real-form generation.
+ * Prefer FaceID refs promoted from review (`F`) when present, else real anchors.
+ * (InstantID graph still deferred — refs feed IP-Adapter today.)
  */
 export function getPrimaryRealAnchor(
   db: IcyDb,
   characterId: string,
 ): CharacterImageRow | null {
   const images = listCharacterImages(db, characterId);
+  const faceId =
+    images.find((i) => i.kind === "faceid_ref" && i.form === "real" && i.isPrimary) ??
+    images.find((i) => i.kind === "faceid_ref" && (i.form === "real" || i.form === null)) ??
+    images.find((i) => i.kind === "faceid_ref");
+  if (faceId) return faceId;
   const primary = images.find(
     (i) => i.kind === "anchor" && i.form === "real" && i.isPrimary,
   );
   if (primary) return primary;
-  const real = images.find((i) => i.kind === "anchor" && i.form === "real");
-  if (real) return real;
-  return images.find((i) => i.kind === "faceid_ref") ?? null;
+  return images.find((i) => i.kind === "anchor" && i.form === "real") ?? null;
 }
 
 export function deleteCharacterImage(db: IcyDb, id: string) {

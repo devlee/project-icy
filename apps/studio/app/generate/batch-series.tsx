@@ -9,6 +9,8 @@ import {
   setSeriesActiveAction,
   type ActionResult,
 } from "./actions"
+import { FactorPicker, type FactorOption } from "./factor-picker"
+import { PosePoolPicker, type PoseOption } from "./pose-picker"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -52,18 +54,26 @@ type SeriesView = {
   scheduleCron: string | null
   active: boolean
   perBatch: number
+  factorNames: string[]
+  poseNames: string[]
 }
 
 export function BatchSeries({
   characters,
   series,
+  factors,
+  poses,
 }: {
   characters: CharacterOption[]
   series: SeriesView[]
+  factors: FactorOption[]
+  poses: PoseOption[]
 }) {
   const router = useRouter()
   const activeCharacters = characters.filter((character) => character.status !== "archived")
   const [characterId, setCharacterId] = useState(activeCharacters[0]?.id ?? "")
+  const [factorIds, setFactorIds] = useState<string[]>([])
+  const [poseIds, setPoseIds] = useState<string[]>([])
   const [message, setMessage] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [busy, startTransition] = useTransition()
@@ -81,7 +91,11 @@ export function BatchSeries({
   }, [activeCharacters, characterId])
 
   useEffect(() => {
-    if (state?.ok) router.refresh()
+    if (state?.ok) {
+      setFactorIds([])
+      setPoseIds([])
+      router.refresh()
+    }
   }, [router, state])
 
   const runNow = (id: string) => {
@@ -157,6 +171,14 @@ export function BatchSeries({
                 <FieldLabel htmlFor="series-theme">主题提示词</FieldLabel>
                 <Input id="series-theme" name="theme" placeholder="summer festival, yukata" />
               </Field>
+              <FactorPicker
+                factors={factors}
+                selectedIds={factorIds}
+                onChange={setFactorIds}
+                label="因子池"
+                description="批次任务会携带池中全部因子（禁用项不可选）"
+              />
+              <PosePoolPicker poses={poses} selectedIds={poseIds} onChange={setPoseIds} />
               <Field>
                 <FieldLabel htmlFor="series-cron">Cron</FieldLabel>
                 <Input id="series-cron" name="scheduleCron" defaultValue="0 4 * * *" className="font-mono" />
@@ -188,6 +210,12 @@ export function BatchSeries({
                   </ItemTitle>
                   <ItemDescription>
                     {row.characterName} · 每批 {row.perBatch} 组 · {row.scheduleCron ?? "手动"}
+                    {row.factorNames.length > 0
+                      ? ` · 因子 ${row.factorNames.join(" · ")}`
+                      : " · 无因子池"}
+                    {row.poseNames.length > 0
+                      ? ` · 姿势 ${row.poseNames.join(" · ")}`
+                      : ""}
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions>

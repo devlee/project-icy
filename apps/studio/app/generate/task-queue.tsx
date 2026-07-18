@@ -42,6 +42,10 @@ export type TaskQueueItem = {
     realWorkflowId?: string
     extraPrompt?: string
     outputKeys?: string[]
+    factorIds?: string[]
+    factorNames?: string[]
+    poseId?: string
+    poseNames?: string[]
   }
   createdAt: string
 }
@@ -171,6 +175,12 @@ export function TaskQueue({ initialTasks }: { initialTasks: TaskQueueItem[] }) {
                       {t.characterName}
                       <span className="font-mono text-xs font-normal text-muted-foreground">
                         {t.type} · {seedDetail(t.params)}
+                        {t.params.factorNames?.length
+                          ? ` · 因子 ${t.params.factorNames.join(" · ")}`
+                          : ""}
+                        {t.params.poseNames?.length
+                          ? ` · 姿势 ${t.params.poseNames.join(" · ")}`
+                          : ""}
                         {t.params.extraPrompt
                           ? ` · ${t.params.extraPrompt.slice(0, 24)}${t.params.extraPrompt.length > 24 ? "…" : ""}`
                           : ""}

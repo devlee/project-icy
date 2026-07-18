@@ -6,7 +6,11 @@ import { ImageUp, Layers, Sparkles, Wand2 } from "lucide-react"
 import type { CharacterOrigin } from "@icy/shared"
 import type { TaskStatus } from "@icy/shared"
 
-import { composePairSetAction, composeSelectedAction } from "./actions"
+import {
+  composePairSetAction,
+  composeSelectedAction,
+  enhancePairSetAction,
+} from "./actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -171,6 +175,19 @@ export function PostWorkshop({
     })
   }
 
+  const enhanceOne = (id: string) => {
+    setError(null)
+    setMessage(null)
+    startTransition(async () => {
+      const result = await enhancePairSetAction(id)
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+      setMessage("已完成本地增强（锐化）")
+    })
+  }
+
   if (pendingRows.length === 0 && readyRows.length === 0) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
@@ -305,19 +322,29 @@ export function PostWorkshop({
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={busy || r.taskStatus === "queued" || r.taskStatus === "running"}
-                            onClick={() => runOne(r.id)}
-                          >
-                            {r.taskStatus === "queued" || r.taskStatus === "running" ? (
-                              <Spinner data-icon="inline-start" />
-                            ) : (
-                              <Sparkles data-icon="inline-start" />
-                            )}
-                            {r.taskStatus === "failed" ? "重试拼版" : "拼版导出"}
-                          </Button>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={busy || r.taskStatus === "queued" || r.taskStatus === "running"}
+                              onClick={() => enhanceOne(r.id)}
+                            >
+                              增强
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={busy || r.taskStatus === "queued" || r.taskStatus === "running"}
+                              onClick={() => runOne(r.id)}
+                            >
+                              {r.taskStatus === "queued" || r.taskStatus === "running" ? (
+                                <Spinner data-icon="inline-start" />
+                              ) : (
+                                <Sparkles data-icon="inline-start" />
+                              )}
+                              {r.taskStatus === "failed" ? "重试拼版" : "拼版导出"}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

@@ -11,6 +11,9 @@ import {
   series,
   type GenerationParams,
 } from "../db/schema";
+import { mergeCharacterDefaultFactors } from "../characters/factor-bindings";
+import { assertFactorIds, FactorError } from "../factors/factors";
+import { assertPoseIds, PoseError } from "../poses/poses";
 import { getWorkflowById, defaultWorkflowRegistry } from "../workflows/default-registry";
 import { expandSeeds } from "./seeds";
 
@@ -44,6 +47,10 @@ export type CreatePairTaskInput = {
   animeWorkflowId?: string;
   realWorkflowId?: string;
   extraPrompt?: string;
+  /** Enabled factors to inject; disabled ids are rejected. */
+  factorIds?: string[];
+  /** Optional ControlNet skeleton pose. */
+  poseId?: string;
   priority?: number;
 };
 
@@ -155,10 +162,38 @@ export function createPairGenerationTask(db: IcyDb, input: CreatePairTaskInput) 
   }
 
   const seedStrategy = normalizeSeedStrategy(input.seedStrategy);
+  let factorIds: string[] = [];
+  try {
+    const explicit = assertFactorIds(db, input.factorIds ?? [], { requireEnabled: true });
+    factorIds = assertFactorIds(
+      db,
+      mergeCharacterDefaultFactors(db, characterId, explicit),
+      { requireEnabled: true },
+    );
+  } catch (error) {
+    if (error instanceof FactorError) {
+      throw new GenerationTaskError(error.message, "validation");
+    }
+    throw error;
+  }
+
+  let poseId: string | undefined;
+  if (input.poseId?.trim()) {
+    try {
+      poseId = assertPoseIds(db, [input.poseId.trim()])[0];
+    } catch (error) {
+      if (error instanceof PoseError) {
+        throw new GenerationTaskError(error.message, "validation");
+      }
+      throw error;
+    }
+  }
+
   const params: GenerationParams = {
     seedStrategy,
     seeds: expandSeeds(seedStrategy),
-    factorIds: [],
+    factorIds,
+    ...(poseId ? { poseId } : {}),
     animeWorkflowId,
     realWorkflowId,
     extraPrompt: input.extraPrompt?.trim() || undefined,
