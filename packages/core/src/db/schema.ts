@@ -10,6 +10,7 @@
 import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core";
 import type {
   AssetKind,
+  CharacterOrigin,
   CharacterStatus,
   FactorCategory,
   Form,
@@ -41,6 +42,10 @@ export const characters = sqliteTable("characters", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   status: text("status").$type<CharacterStatus>().notNull().default("draft"),
+  /** original = OC (commercial-safe); ip_reference = research only. */
+  origin: text("origin").$type<CharacterOrigin>().notNull().default("original"),
+  /** IP franchise name when origin is ip_reference (e.g. 原神、鬼灭之刃). */
+  ipSource: text("ip_source").notNull().default(""),
   /** Persona, backstory, personality — freeform markdown. */
   profile: text("profile").notNull().default(""),
   /** Short one-liner used on portal and lists. */

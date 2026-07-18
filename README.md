@@ -14,7 +14,7 @@ packages/
   adapters/   端口的基础设施实现（本地 fs / ComfyUI / 进程内队列，云化只换实现）
   shared/     共享类型（枚举、门户内容包 schema）
 content/      本地内容仓（git 忽略：图片、数据库）
-docs/         项目文档（git 忽略）：whitepaper.md、product-design.md
+docs/         项目文档（git 忽略）：whitepaper / product-design / FEATURES / studio-design
 ```
 
 ## 开发

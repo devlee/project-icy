@@ -1,6 +1,14 @@
 export const CHARACTER_STATUSES = ["draft", "growing", "featured", "archived"] as const;
 export type CharacterStatus = (typeof CHARACTER_STATUSES)[number];
 
+/**
+ * Character provenance.
+ * - `original`: own OC — allowed in commercial publish pipeline
+ * - `ip_reference`: existing IP character — research / style study only, never commercial
+ */
+export const CHARACTER_ORIGINS = ["original", "ip_reference"] as const;
+export type CharacterOrigin = (typeof CHARACTER_ORIGINS)[number];
+
 export const FACTOR_CATEGORIES = [
   "style",
   "scene",

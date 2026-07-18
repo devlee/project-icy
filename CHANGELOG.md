@@ -19,3 +19,6 @@
 - 测试覆盖率：`@vitest/coverage-v8`，`pnpm test:coverage` 出终端 + HTML 报告；CI Test 步骤改为跑覆盖率（不设硬门槛）；当前 core 99% / adapters 100%（语句）
 - 设计 skills：`shadcn`（官方，`.agents/skills/`）、`ui-ux-pro-max`（`.cursor/skills/`）
 - 设计 skills：`frontend-design`（Anthropic）、`web-design-guidelines`（Vercel）
+- 角色库接真库：`@icy/core` 角色 CRUD（list/create/update/archive）+ 测试；Studio Server Actions + `/characters` 读写 `content/icy.db`（启动时 migrate）
+- 角色来源划分：`origin`（`original` / `ip_reference`）+ `ipSource`；创建表单与列表筛选；迁移 `0001_*`；研究清单 `docs/anime-character-research.md`
+- Studio REST：`GET/POST /api/characters`（列表 / 创建）

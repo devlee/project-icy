@@ -40,9 +40,10 @@ apps/studio, apps/portal  →  @icy/adapters  →  @icy/core  →  @icy/shared
 ## 迭代流程（每次功能/修复完成后）
 
 1. `CHANGELOG.md` 顶部 `[Unreleased]` 写 Added / Changed / Fixed
-2. 发版时：改根 `package.json` 的 `version`（唯一版本源，子包不 bump），`[Unreleased]` 改为 `[x.y.z] - 日期`
-3. 功能范围或架构变化 → 同步 `docs/product-design.md`；方向变化 → `docs/whitepaper.md`
-4. 提交前必须通过：`pnpm typecheck` + `pnpm test`；schema 变更还须 `pnpm db:generate` 且迁移文件已提交（CI 会检查漂移）
+2. 功能落地或范围变化 → 同步 `docs/FEATURES.md` 状态表
+3. 发版时：改根 `package.json` 的 `version`（唯一版本源，子包不 bump），`[Unreleased]` 改为 `[x.y.z] - 日期`
+4. 功能范围或架构变化 → 同步 `docs/product-design.md`；方向变化 → `docs/whitepaper.md`
+5. 提交前必须通过：`pnpm typecheck` + `pnpm test`；schema 变更还须 `pnpm db:generate` 且迁移文件已提交（CI 会检查漂移）
 
 ## 禁止事项
 

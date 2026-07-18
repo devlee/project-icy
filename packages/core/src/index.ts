@@ -4,3 +4,5 @@ export * from "./workflows/registry";
 export * from "./ports/storage";
 export * from "./ports/generation";
 export * from "./ports/queue";
+export * from "./characters/characters";
+export * from "./characters/slug";
