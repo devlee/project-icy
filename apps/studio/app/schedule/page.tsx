@@ -1,129 +1,126 @@
-import { Copy, FolderOpen } from "lucide-react"
-
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
+  getInventoryStats,
+  listInventoryPacks,
+  listPublishPlans,
+  todayLocalDate,
+  type PublishPlanListItem,
+} from "@icy/core"
+
+export const dynamic = "force-dynamic"
+
+import { getDb } from "@/lib/db"
+import { getStorage } from "@/lib/services"
 import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemGroup,
-  ItemTitle,
-} from "@/components/ui/item"
+  ScheduleBoard,
+  type InventoryPackView,
+  type PlanView,
+} from "./schedule-board"
 
-const week = [
-  { day: "周一 07-13", items: [{ title: "凛冬 · 夏日祭 #10", platform: "小红书", done: true }] },
-  { day: "周二 07-14", items: [{ title: "凛冬 · 夏日祭 #11", platform: "X", done: true }] },
-  {
-    day: "周三 07-15",
-    items: [
-      { title: "小满 · 雨季 #3", platform: "小红书", done: true },
-      { title: "凛冬 · 夏日祭 #11", platform: "B站", done: true },
-    ],
-  },
-  { day: "周四 07-16", items: [{ title: "芽衣 · 街拍 #1", platform: "X", done: true }] },
-  { day: "周五 07-17", items: [{ title: "凛冬 · 夏日祭 #12", platform: "小红书", done: true }] },
-  {
-    day: "周六 07-18 · 今天",
-    today: true,
-    items: [
-      { title: "凛冬 · 夏日祭 #12", platform: "小红书", done: true },
-      { title: "凛冬 · 夏日祭 #13", platform: "X", done: false },
-      { title: "小满 · 雨季 #4", platform: "B站", done: false },
-    ],
-  },
-  { day: "周日 07-19", items: [] },
-]
+function addDays(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map(Number)
+  const dt = new Date(y!, m! - 1, d!)
+  dt.setDate(dt.getDate() + days)
+  const yy = dt.getFullYear()
+  const mm = String(dt.getMonth() + 1).padStart(2, "0")
+  const dd = String(dt.getDate()).padStart(2, "0")
+  return `${yy}-${mm}-${dd}`
+}
 
-const todayList = [
-  { title: "凛冬 · 夏日祭 #12 对照组", platform: "小红书", status: "已发布", done: true },
-  { title: "凛冬 · 夏日祭 #13 对照组", platform: "X", status: "素材就绪", done: false },
-  { title: "小满 · 雨季系列 #4 变身视频", platform: "B站", status: "待拼版", done: false },
-]
+function toPlanView(
+  plan: PublishPlanListItem,
+  localPath: (key: string) => string,
+): PlanView {
+  return {
+    id: plan.id,
+    date: plan.date,
+    platform: plan.platform,
+    status: plan.status,
+    caption: plan.caption,
+    hashtags: plan.hashtags,
+    notes: plan.notes,
+    publishedAt: plan.publishedAt ? plan.publishedAt.toISOString() : null,
+    previewPath: plan.assets[0]?.filePath ?? null,
+    assets: plan.assets.map((a) => ({
+      id: a.id,
+      filePath: a.filePath,
+      localPath: localPath(a.filePath),
+      platform: a.platform,
+      kind: a.kind,
+    })),
+  }
+}
 
-export default function SchedulePage() {
+export default async function SchedulePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pairSetId?: string }>
+}) {
+  const sp = await searchParams
+  const db = getDb()
+  const storage = getStorage()
+  const today = todayLocalDate()
+  const end = addDays(today, 6)
+  const yesterday = addDays(today, -1)
+
+  const stats = getInventoryStats(db, { dailyBurn: 1 })
+  const packs: InventoryPackView[] = listInventoryPacks(db).map((p) => ({
+    id: p.id,
+    characterName: p.characterName,
+    seed: p.seed,
+    rating: p.rating,
+    animeImagePath: p.animeImagePath,
+    realImagePath: p.realImagePath,
+    assetCount: p.assetCount,
+  }))
+
+  const allUpcoming = listPublishPlans(db, {
+    fromDate: today,
+    toDate: end,
+    limit: 100,
+  })
+  const overdue = [
+    ...listPublishPlans(db, {
+      status: "planned",
+      toDate: yesterday,
+      limit: 100,
+    }),
+    ...listPublishPlans(db, {
+      status: "ready",
+      toDate: yesterday,
+      limit: 100,
+    }),
+  ].sort((a, b) => b.date.localeCompare(a.date))
+
+  const todayPlans = allUpcoming
+    .filter(
+      (p) =>
+        p.date === today && (p.status === "planned" || p.status === "ready"),
+    )
+    .map((p) => toPlanView(p, (k) => storage.localPath(k)))
+
+  const upcomingPlans = [...overdue, ...allUpcoming.filter((p) => p.status !== "published")]
+    .map((p) => toPlanView(p, (k) => storage.localPath(k)))
+
+  const recentPublished = listPublishPlans(db, {
+    status: "published",
+    limit: 10,
+  }).map((p) => toPlanView(p, (k) => storage.localPath(k)))
+
+  const prefill =
+    typeof sp.pairSetId === "string" &&
+    packs.some((p) => p.id === sp.pairSetId)
+      ? sp.pairSetId
+      : null
+
   return (
-    <main className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center gap-3">
-        <h1 className="text-lg font-semibold tracking-tight">库存与排期</h1>
-        <span className="text-sm text-muted-foreground">本周 07-13 至 07-19 · 已排 9 项</span>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">库存</span>
-          <Badge>8.5 天</Badge>
-        </div>
-      </div>
-
-      <div className="grid gap-2 lg:grid-cols-7">
-        {week.map((d) => (
-          <Card key={d.day} className={d.today ? "border-primary" : undefined}>
-            <CardHeader className="px-3">
-              <CardTitle className="text-xs font-medium text-muted-foreground">
-                {d.day}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-1.5 px-3">
-              {d.items.length === 0 ? (
-                <span className="rounded-md border border-dashed px-2 py-3 text-center text-xs text-muted-foreground">
-                  休息日
-                </span>
-              ) : (
-                d.items.map((it) => (
-                  <div
-                    key={`${it.title}-${it.platform}`}
-                    className="flex flex-col gap-0.5 rounded-md bg-muted/50 px-2 py-1.5"
-                  >
-                    <span className="truncate text-xs">{it.title}</span>
-                    <span className="flex items-center justify-between font-mono text-[10px] text-muted-foreground">
-                      {it.platform}
-                      {it.done ? <Badge variant="outline">✓</Badge> : null}
-                    </span>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>今日待发布清单</CardTitle>
-          <CardDescription>
-            半自动发布：复制文案、打开素材文件夹，最后一步在平台手动完成
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ItemGroup className="gap-1">
-            {todayList.map((t) => (
-              <Item key={t.title} variant="muted" size="sm">
-                <Checkbox defaultChecked={t.done} aria-label={`标记 ${t.title}`} />
-                <ItemContent>
-                  <ItemTitle>{t.title}</ItemTitle>
-                </ItemContent>
-                <ItemActions>
-                  <span className="font-mono text-xs text-muted-foreground">{t.platform}</span>
-                  <Badge variant={t.done ? "outline" : "secondary"}>{t.status}</Badge>
-                  <Button variant="ghost" size="sm" disabled={t.done}>
-                    <Copy data-icon="inline-start" />
-                    复制文案
-                  </Button>
-                  <Button variant="ghost" size="sm" disabled={t.done}>
-                    <FolderOpen data-icon="inline-start" />
-                    素材
-                  </Button>
-                </ItemActions>
-              </Item>
-            ))}
-          </ItemGroup>
-        </CardContent>
-      </Card>
-    </main>
+    <ScheduleBoard
+      today={today}
+      stats={stats}
+      packs={packs}
+      todayPlans={todayPlans}
+      upcomingPlans={upcomingPlans}
+      recentPublished={recentPublished}
+      prefillPairSetId={prefill}
+    />
   )
 }

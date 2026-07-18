@@ -205,6 +205,8 @@ export const generationTasks = sqliteTable(
 export interface GenerationParams {
   /** Fixed seed for reproduction, or count of random seeds. */
   seedStrategy: { kind: "fixed"; seed: number } | { kind: "random"; count: number };
+  /** Concrete seeds materialized when the task is created; preserved across retries. */
+  seeds?: number[];
   poseId?: string;
   factorIds: string[];
   /** Workflow registry ids for each form. */
@@ -253,6 +255,32 @@ export const pairSets = sqliteTable(
     index("pair_sets_review_idx").on(t.reviewStatus),
     index("pair_sets_character_idx").on(t.characterId),
     index("pair_sets_task_idx").on(t.taskId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Post tasks — persistent Sharp/Comfy post-processing work for the worker
+// ---------------------------------------------------------------------------
+
+export const postTasks = sqliteTable(
+  "post_tasks",
+  {
+    id: id(),
+    pairSetId: text("pair_set_id")
+      .notNull()
+      .references(() => pairSets.id, { onDelete: "cascade" }),
+    status: text("status").$type<TaskStatus>().notNull().default("queued"),
+    priority: integer("priority").notNull().default(5),
+    error: text("error"),
+    outputKeys: text("output_keys", { mode: "json" }).$type<string[]>(),
+    startedAt: integer("started_at", { mode: "timestamp_ms" }),
+    finishedAt: integer("finished_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("post_tasks_status_idx").on(t.status, t.priority),
+    index("post_tasks_pair_idx").on(t.pairSetId, t.createdAt),
   ],
 );
 

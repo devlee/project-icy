@@ -1,4 +1,6 @@
-import { ArrowDownRight, ArrowUpRight, Clock } from "lucide-react"
+import { Clock } from "lucide-react"
+import { getStudioOverview } from "@icy/core"
+import type { Platform, PublishStatus } from "@icy/shared"
 
 import { Badge } from "@/components/ui/badge"
 import {
@@ -8,7 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import {
   Item,
   ItemActions,
@@ -19,72 +26,111 @@ import {
 } from "@/components/ui/item"
 import { Progress } from "@/components/ui/progress"
 import { Spinner } from "@/components/ui/spinner"
+import { getDb } from "@/lib/db"
 
-const characterStock = [
-  { name: "凛冬 Rin", count: 8, anime: 42, real: 38 },
-  { name: "小满 Mitsu", count: 5, anime: 30, real: 12 },
-  { name: "芽衣 Mei", count: 4, anime: 15, real: 13 },
-]
+export const dynamic = "force-dynamic"
 
-const todayPublish = [
-  { title: "凛冬 · 夏日祭 #12 对照组", platform: "小红书", status: "已发布", done: true },
-  { title: "凛冬 · 夏日祭 #13 对照组", platform: "X", status: "素材就绪", done: false },
-  { title: "小满 · 雨季系列 #4 变身视频", platform: "B站", status: "待拼版", done: false },
-]
+const PLATFORM_LABEL: Record<Platform, string> = {
+  generic: "通用",
+  xiaohongshu: "小红书",
+  x: "X",
+  bilibili: "B站",
+}
 
-const queue = [
-  { title: "凛冬 · 夏日祭 #15", detail: "pair ×8", status: "生成中 3/8", running: true, eta: "06:12" },
-  { title: "芽衣 · 街拍系列 #2", detail: "pair ×6", status: "排队", running: false },
-  { title: "小满 · 定时批次", detail: "cron 04:00", status: "明晨", running: false },
-]
+const PLAN_STATUS_LABEL: Record<PublishStatus, string> = {
+  planned: "计划中",
+  ready: "素材就绪",
+  published: "已发布",
+}
 
-const metrics = [
-  { label: "新增粉丝", value: "+412", up: true },
-  { label: "爆款率（≥1w 曝光）", value: "2 / 9", up: true },
-  { label: "询单转化率", value: "18%", up: false },
-  { label: "周收入", value: "¥1,240", up: true },
-]
+function inventoryStatus(days: number): {
+  label: string
+  variant: "default" | "secondary" | "destructive"
+} {
+  if (days >= 7) return { label: "健康", variant: "default" }
+  if (days >= 4) return { label: "偏低", variant: "secondary" }
+  return { label: "不足", variant: "destructive" }
+}
 
-function PairThumb() {
+function contentUrl(path: string) {
+  return `/api/content/${path.split("/").map(encodeURIComponent).join("/")}`
+}
+
+function PlanThumb({ path }: { path: string | null }) {
+  if (!path) {
+    return <div className="size-full rounded-sm border bg-muted" aria-hidden="true" />
+  }
   return (
-    <div className="grid size-full grid-cols-[1fr_1px_1fr] overflow-hidden rounded-sm border">
-      <div className="bg-muted" />
-      <div className="bg-primary/40" />
-      <div className="bg-accent" />
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={contentUrl(path)} alt="发布素材预览" className="size-full object-cover" />
   )
 }
 
 export default function DashboardPage() {
+  const overview = getStudioOverview(getDb())
+  const stockStatus = inventoryStatus(overview.inventory.days)
+  const maxCharacterStock = Math.max(
+    1,
+    ...overview.characterStock.map((character) => character.count),
+  )
+  const reviewMetrics = [
+    { label: "今日已筛", value: overview.todayReviewedCount },
+    { label: "待筛", value: overview.review.pending },
+    { label: "通过", value: overview.review.approved },
+    { label: "待定", value: overview.review.hold },
+  ]
+
   return (
     <main className="grid flex-1 gap-4 p-4 lg:grid-cols-[320px_1fr]">
       <Card className="lg:row-span-2">
         <CardHeader>
           <CardTitle>内容库存</CardTitle>
-          <CardDescription>成品 17 组 · 日均消耗 2 组 · 目标 ≥7 天</CardDescription>
+          <CardDescription>
+            成品 {overview.inventory.readyPacks} 组 · 日均消耗 {overview.inventory.dailyBurn} 组 ·
+            目标 ≥7 天
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-1 flex-col gap-6">
           <div className="flex items-baseline gap-2">
-            <span className="text-6xl font-semibold tracking-tight tabular-nums">8.5</span>
+            <span className="text-6xl font-semibold tracking-tight tabular-nums">
+              {overview.inventory.days}
+            </span>
             <span className="text-muted-foreground">天</span>
-            <Badge variant="secondary" className="ml-auto">健康</Badge>
+            <Badge variant={stockStatus.variant} className="ml-auto">
+              {stockStatus.label}
+            </Badge>
           </div>
-          <Progress value={85} aria-label="库存相对目标" />
+          <Progress
+            value={Math.min(100, (overview.inventory.days / 7) * 100)}
+            aria-label="库存相对七天目标"
+          />
           <div className="mt-auto flex flex-col gap-4">
             <span className="text-sm font-medium text-muted-foreground">各角色存量</span>
-            {characterStock.map((c) => (
-              <div key={c.name} className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span>{c.name}</span>
-                  <span className="text-muted-foreground tabular-nums">{c.count} 组</span>
+            {overview.characterStock.length === 0 ? (
+              <Empty className="border border-dashed py-8">
+                <EmptyHeader>
+                  <EmptyTitle className="text-sm">暂无可排期成品</EmptyTitle>
+                  <EmptyDescription className="text-xs">
+                    已完成后期且尚未排期的原创成品会显示在这里
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              overview.characterStock.map((character) => (
+                <div key={character.characterId} className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>{character.characterName}</span>
+                    <span className="text-muted-foreground tabular-nums">
+                      {character.count} 组
+                    </span>
+                  </div>
+                  <Progress
+                    value={(character.count / maxCharacterStock) * 100}
+                    aria-label={`${character.characterName}库存`}
+                  />
                 </div>
-                <div className="flex h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div className="bg-primary" style={{ width: `${c.anime}%` }} />
-                  <div className="bg-primary/30" style={{ width: `${c.real}%` }} />
-                </div>
-              </div>
-            ))}
-            <span className="text-xs text-muted-foreground">深色 = 二次元 · 浅色 = 真人</span>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
@@ -92,28 +138,40 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>今日待发布</CardTitle>
-          <CardDescription>2026-07-18 · 3 项</CardDescription>
+          <CardDescription>
+            {overview.today} · {overview.todayPlans.length} 项
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <ItemGroup className="gap-1">
-            {todayPublish.map((p) => (
-              <Item key={p.title} variant="muted" size="sm">
-                <ItemMedia>
-                  <Checkbox defaultChecked={p.done} aria-label={`标记 ${p.title}`} />
-                </ItemMedia>
-                <ItemMedia variant="image">
-                  <PairThumb />
-                </ItemMedia>
-                <ItemContent>
-                  <ItemTitle>{p.title}</ItemTitle>
-                </ItemContent>
-                <ItemActions>
-                  <span className="text-xs text-muted-foreground">{p.platform}</span>
-                  <Badge variant={p.done ? "outline" : "secondary"}>{p.status}</Badge>
-                </ItemActions>
-              </Item>
-            ))}
-          </ItemGroup>
+          {overview.todayPlans.length === 0 ? (
+            <Empty className="border border-dashed py-8">
+              <EmptyHeader>
+                <EmptyTitle className="text-sm">今日暂无发布计划</EmptyTitle>
+                <EmptyDescription className="text-xs">在库存与排期页创建今日计划</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <ItemGroup className="gap-1">
+              {overview.todayPlans.map((plan) => (
+                <Item key={plan.id} variant="muted" size="sm">
+                  <ItemMedia variant="image">
+                    <PlanThumb path={plan.previewPath} />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{plan.caption || `${PLATFORM_LABEL[plan.platform]}发布计划`}</ItemTitle>
+                  </ItemContent>
+                  <ItemActions>
+                    <span className="text-xs text-muted-foreground">
+                      {PLATFORM_LABEL[plan.platform]}
+                    </span>
+                    <Badge variant={plan.status === "published" ? "outline" : "secondary"}>
+                      {PLAN_STATUS_LABEL[plan.status]}
+                    </Badge>
+                  </ItemActions>
+                </Item>
+              ))}
+            </ItemGroup>
+          )}
         </CardContent>
       </Card>
 
@@ -121,48 +179,53 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>生成队列</CardTitle>
+            <CardDescription>当前活跃 {overview.activeTaskCount} 项</CardDescription>
           </CardHeader>
           <CardContent>
-            <ItemGroup className="gap-1">
-              {queue.map((q) => (
-                <Item key={q.title} size="sm">
-                  <ItemMedia variant="icon">
-                    {q.running ? <Spinner /> : <Clock />}
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>
-                      {q.title}
-                      <span className="font-normal text-muted-foreground">{q.detail}</span>
-                    </ItemTitle>
-                  </ItemContent>
-                  <ItemActions>
-                    {q.eta ? (
-                      <span className="text-xs text-muted-foreground tabular-nums">{q.eta}</span>
-                    ) : null}
-                    <Badge variant={q.running ? "default" : "secondary"}>{q.status}</Badge>
-                  </ItemActions>
-                </Item>
-              ))}
-            </ItemGroup>
+            {overview.activeTasks.length === 0 ? (
+              <Empty className="border border-dashed py-8">
+                <EmptyHeader>
+                  <EmptyTitle className="text-sm">队列空闲</EmptyTitle>
+                  <EmptyDescription className="text-xs">暂无排队或生成中的任务</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <ItemGroup className="gap-1">
+                {overview.activeTasks.map((task) => (
+                  <Item key={task.id} size="sm">
+                    <ItemMedia variant="icon">
+                      {task.status === "running" ? <Spinner /> : <Clock />}
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>
+                        {task.characterName}
+                        <span className="font-normal text-muted-foreground">{task.type}</span>
+                      </ItemTitle>
+                    </ItemContent>
+                    <ItemActions>
+                      <Badge variant={task.status === "running" ? "default" : "secondary"}>
+                        {task.status === "running" ? "生成中" : "排队"}
+                      </Badge>
+                    </ItemActions>
+                  </Item>
+                ))}
+              </ItemGroup>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>本周四数</CardTitle>
+            <CardTitle>筛选概览</CardTitle>
+            <CardDescription>全部 PairSet {overview.review.total} 组</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
-            {metrics.map((m) => (
-              <div key={m.label} className="flex flex-col gap-1 rounded-lg border p-3">
-                <span className="flex items-center gap-1 text-2xl font-semibold tracking-tight tabular-nums">
-                  {m.value}
-                  {m.up ? (
-                    <ArrowUpRight className="size-4 text-muted-foreground" aria-label="上升" />
-                  ) : (
-                    <ArrowDownRight className="size-4 text-destructive" aria-label="下降" />
-                  )}
+            {reviewMetrics.map((metric) => (
+              <div key={metric.label} className="flex flex-col gap-1 rounded-lg border p-3">
+                <span className="text-2xl font-semibold tracking-tight tabular-nums">
+                  {metric.value}
                 </span>
-                <span className="text-xs text-muted-foreground">{m.label}</span>
+                <span className="text-xs text-muted-foreground">{metric.label}</span>
               </div>
             ))}
           </CardContent>

@@ -51,6 +51,10 @@ function contentUrl(path: string) {
 export function PairTaskForm({ characters }: { characters: CharacterOption[] }) {
   const formId = useId()
   const active = characters.filter((c) => c.status !== "archived")
+  const characterItems = active.map((character) => ({
+    label: character.name,
+    value: character.id,
+  }))
   const [characterId, setCharacterId] = useState(active[0]?.id ?? "")
   const [seedKind, setSeedKind] = useState<"random" | "fixed">("fixed")
   const [extraPrompt, setExtraPrompt] = useState("")
@@ -114,7 +118,7 @@ export function PairTaskForm({ characters }: { characters: CharacterOption[] }) 
               <Field>
                 <FieldLabel>角色</FieldLabel>
                 <input type="hidden" name="characterId" value={characterId} />
-                <Select value={characterId} onValueChange={(v) => setCharacterId(v ?? "")}>
+                <Select items={characterItems} value={characterId} onValueChange={(v) => setCharacterId(v ?? "")}>
                   <SelectTrigger className="w-full">
                     <SelectValue>{characterLabel}</SelectValue>
                   </SelectTrigger>

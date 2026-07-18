@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { GenerationAdapter } from "../ports/generation";
 import type { StorageAdapter } from "../ports/storage";
 import type { IcyDb } from "../db/client";
-import { characters } from "../db/schema";
+import { characters, factors, pairSets } from "../db/schema";
 import {
   getPrimaryAnimeAnchor,
   getPrimaryRealAnchor,
@@ -31,8 +31,8 @@ export type RunPairTaskDeps = {
 };
 
 /**
- * Execute a queued `pair` task: for each seed run anime then real (shared seed),
- * write PairSet rows, mark done/failed.
+ * Execute a queued `pair` or `batch` task: for each seed run anime then real
+ * (shared seed), write PairSet rows, mark done/failed.
  */
 export async function runPairGenerationTask(
   taskId: string,
@@ -41,8 +41,8 @@ export async function runPairGenerationTask(
   const { db, generation, storage } = deps;
   const task = getGenerationTask(db, taskId);
   if (!task) throw new GenerationTaskError("任务不存在", "not_found");
-  if (task.type !== "pair") {
-    throw new GenerationTaskError("仅支持 pair 任务", "validation");
+  if (task.type !== "pair" && task.type !== "batch") {
+    throw new GenerationTaskError("仅支持 pair 或 batch 任务", "validation");
   }
   if (task.status === "cancelled") return;
   if (task.status !== "queued") {
@@ -74,8 +74,6 @@ export async function runPairGenerationTask(
     task.params.realWorkflowId,
   );
 
-  const seeds = expandSeeds(task.params.seedStrategy);
-  const userPrompt = buildUserPrompt(character.tagline, task.params.extraPrompt);
   const outputKeys: string[] = [];
   const formDeps = {
     generation,
@@ -85,9 +83,43 @@ export async function runPairGenerationTask(
   };
 
   try {
+    const factorRows = task.params.factorIds.map((id) => {
+      const factor = db.select().from(factors).where(eq(factors.id, id)).get();
+      if (!factor) throw new Error(`因子不存在: ${id}`);
+      return factor;
+    });
+    const positiveFactors = factorRows
+      .filter((factor) => factor.enabled)
+      .map((factor) => factor.promptFragment.trim())
+      .filter(Boolean)
+      .join(", ");
+    const negativePrompt = factorRows
+      .filter((factor) => factor.enabled)
+      .map((factor) => factor.negativeFragment.trim())
+      .filter(Boolean)
+      .join(", ");
+    const extraPrompt = [positiveFactors, task.params.extraPrompt]
+      .map((part) => part?.trim())
+      .filter(Boolean)
+      .join(", ");
+    const userPrompt = buildUserPrompt(character.tagline, extraPrompt);
+    const seeds = task.params.seeds?.length
+      ? task.params.seeds
+      : expandSeeds(task.params.seedStrategy);
+
     for (const seed of seeds) {
       if (deps.signal?.aborted) {
         throw new Error("生成已取消");
+      }
+
+      const existing = db
+        .select()
+        .from(pairSets)
+        .where(and(eq(pairSets.taskId, taskId), eq(pairSets.seed, seed)))
+        .get();
+      if (existing) {
+        outputKeys.push(existing.animeImagePath, existing.realImagePath);
+        continue;
       }
 
       const animeImagePath = await runFormOnce(
@@ -96,6 +128,7 @@ export async function runPairGenerationTask(
           form: "anime",
           workflowId: animeWorkflowId,
           userPrompt,
+          negativePrompt,
           seed,
           anchor: animeAnchor,
           outputName: "anime",
@@ -110,6 +143,7 @@ export async function runPairGenerationTask(
           form: "real",
           workflowId: realWorkflowId,
           userPrompt,
+          negativePrompt,
           seed,
           anchor: realAnchor,
           outputName: "real",
@@ -124,6 +158,8 @@ export async function runPairGenerationTask(
         seed,
         animeImagePath,
         realImagePath,
+        seriesId: task.seriesId,
+        poseId: task.params.poseId,
       });
     }
 

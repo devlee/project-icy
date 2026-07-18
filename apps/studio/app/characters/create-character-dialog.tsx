@@ -32,6 +32,16 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+const ORIGIN_ITEMS = [
+  { label: "原创 OC", value: "original" },
+  { label: "IP 参考（仅研究）", value: "ip_reference" },
+]
+const STATUS_ITEMS = [
+  { label: "草稿", value: "draft" },
+  { label: "养成中", value: "growing" },
+  { label: "主推", value: "featured" },
+]
+
 export function CreateCharacterDialog({
   triggerClassName,
 }: {
@@ -80,7 +90,7 @@ export function CreateCharacterDialog({
             <Field>
               <FieldLabel>来源</FieldLabel>
               <input type="hidden" name="origin" value={origin} />
-              <Select value={origin} onValueChange={(v) => setOrigin(v ?? "original")}>
+              <Select items={ORIGIN_ITEMS} value={origin} onValueChange={(v) => setOrigin(v ?? "original")}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -117,7 +127,7 @@ export function CreateCharacterDialog({
             <Field>
               <FieldLabel>初始状态</FieldLabel>
               <input type="hidden" name="status" value={status} />
-              <Select value={status} onValueChange={(v) => setStatus(v ?? "draft")}>
+              <Select items={STATUS_ITEMS} value={status} onValueChange={(v) => setStatus(v ?? "draft")}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>

@@ -59,6 +59,7 @@ export type RunFormOnceInput = {
   form: Form;
   workflowId: string;
   userPrompt: string;
+  negativePrompt?: string;
   seed: number;
   anchor: CharacterImageRow | null;
   /** Filename stem under raw/tasks/{taskId}/seed-{seed}/ */
@@ -86,7 +87,7 @@ export async function runFormOnce(
   const graph = loadWorkflowJson(def, deps.workflowsDir);
   const workflow = injectWorkflow(graph, def.injectionPoints, {
     positivePrompt: mergePrompts(def.basePrompt, input.userPrompt || "1girl"),
-    negativePrompt: mergePrompts(def.baseNegativePrompt, undefined),
+    negativePrompt: mergePrompts(def.baseNegativePrompt, input.negativePrompt),
     seed: input.seed,
     faceIdImageName,
   });

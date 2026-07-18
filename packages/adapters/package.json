@@ -13,7 +13,8 @@
   "dependencies": {
     "@icy/core": "workspace:*",
     "@icy/shared": "workspace:*",
-    "p-queue": "^8.0.1"
+    "p-queue": "^8.0.1",
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getStudioOverview } from "@icy/core";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
@@ -9,6 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { StudioSidebar } from "@/components/studio-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ModeToggle } from "@/components/mode-toggle";
+import { getDb } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "project-icy Studio",
@@ -20,6 +24,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const overview = getStudioOverview(getDb());
+
   return (
     <html
       lang="zh-CN"
@@ -40,12 +46,12 @@ export default function RootLayout({
                 <SidebarTrigger />
                 <Separator orientation="vertical" className="h-5" />
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span>队列 3 项</span>
-                  <span>今日已筛 37 组</span>
+                  <span>队列 {overview.activeTaskCount} 项</span>
+                  <span>今日已筛 {overview.todayReviewedCount} 组</span>
                 </div>
                 <div className="ml-auto flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">内容库存</span>
-                  <Badge>8.5 天</Badge>
+                  <Badge>{overview.inventory.days} 天</Badge>
                   <Separator orientation="vertical" className="h-5" />
                   <ModeToggle />
                 </div>

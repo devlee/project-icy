@@ -157,7 +157,10 @@ export function TaskQueue({ initialTasks }: { initialTasks: TaskQueueItem[] }) {
         ) : (
           <ItemGroup className="gap-1">
             {tasks.map((t) => {
-              const thumbs = t.type === "pair" ? pairThumbs(t.params.outputKeys) : null
+              const thumbs =
+                t.type === "pair" || t.type === "batch"
+                  ? pairThumbs(t.params.outputKeys)
+                  : null
               return (
                 <Item key={t.id} variant="muted" size="sm">
                   <ItemMedia variant="icon">

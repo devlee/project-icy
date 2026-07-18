@@ -18,6 +18,11 @@ const LABELS: Record<CharacterStatus, string> = {
   archived: "封存",
 }
 
+const STATUS_ITEMS = (Object.keys(LABELS) as CharacterStatus[]).map((status) => ({
+  label: LABELS[status],
+  value: status,
+}))
+
 export function CharacterStatusSelect({
   id,
   status,
@@ -27,6 +32,7 @@ export function CharacterStatusSelect({
 }) {
   return (
     <Select
+      items={STATUS_ITEMS}
       value={status}
       onValueChange={(value) => {
         if (!value) return

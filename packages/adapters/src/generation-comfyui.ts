@@ -225,9 +225,8 @@ export class ComfyUIGenerationAdapter implements GenerationAdapter {
       }
     }
 
-    const promptId = await this.queuePrompt(workflow, clientId, signal);
-    const wsOutputs = await this.waitForPrompt(
-      promptId,
+    const { promptId, outputs: wsOutputs } = await this.queueAndWaitForPrompt(
+      workflow,
       clientId,
       onProgress,
       signal,
@@ -306,16 +305,22 @@ export class ComfyUIGenerationAdapter implements GenerationAdapter {
     return body.prompt_id;
   }
 
-  private waitForPrompt(
-    promptId: string,
+  private queueAndWaitForPrompt(
+    workflow: Record<string, unknown>,
     clientId: string,
     onProgress?: (p: GenerationProgress) => void,
     signal?: AbortSignal,
-  ): Promise<NodeOutputs> {
+  ): Promise<{ promptId: string; outputs: NodeOutputs }> {
     return new Promise((resolve, reject) => {
       let settled = false;
+      let promptStarted = false;
+      let promptId: string | null = null;
       let currentNode: string | null = null;
       const outputs: NodeOutputs = {};
+      const pendingMessages: Array<{
+        type?: string;
+        data?: Record<string, unknown>;
+      }> = [];
 
       const qs = new URLSearchParams({ clientId });
       if (this.apiKey) qs.set("token", this.apiKey);
@@ -333,10 +338,10 @@ export class ComfyUIGenerationAdapter implements GenerationAdapter {
       };
 
       const finishOk = () => {
-        if (settled) return;
+        if (settled || promptId === null) return;
         settled = true;
         cleanup();
-        resolve(outputs);
+        resolve({ promptId, outputs });
       };
 
       const finishErr = (err: Error) => {
@@ -347,14 +352,14 @@ export class ComfyUIGenerationAdapter implements GenerationAdapter {
       };
 
       const onAbort = () => {
-        void this.fetchFn(this.path("/interrupt"), {
-          method: "POST",
-          headers: this.authHeaders(),
-        }).catch(() => undefined);
+        this.interrupt();
         finishErr(new ComfyUIGenerationError("生成已取消"));
       };
 
       const timer = setTimeout(() => {
+        // Do not interrupt an unrelated backend job while this run is still
+        // waiting for its WebSocket connection.
+        if (promptStarted) this.interrupt();
         finishErr(new ComfyUIGenerationError(`生成超时（>${this.timeoutMs}ms）`));
       }, this.timeoutMs);
 
@@ -370,19 +375,10 @@ export class ComfyUIGenerationAdapter implements GenerationAdapter {
         finishErr(new ComfyUIGenerationError("ComfyUI WebSocket 连接失败"));
       });
 
-      ws.addEventListener("message", (event) => {
-        let msg: { type?: string; data?: Record<string, unknown> };
-        try {
-          const raw =
-            typeof event.data === "string"
-              ? event.data
-              : Buffer.from(event.data as ArrayBuffer).toString("utf8");
-          if (raw.length > 0 && raw.charCodeAt(0) === 0) return;
-          msg = JSON.parse(raw) as typeof msg;
-        } catch {
-          return;
-        }
-
+      const handleMessage = (msg: {
+        type?: string;
+        data?: Record<string, unknown>;
+      }) => {
         const data = msg.data ?? {};
         const pid = data.prompt_id;
         // Cloud docs: filter to our job when prompt_id is present.
@@ -431,8 +427,58 @@ export class ComfyUIGenerationAdapter implements GenerationAdapter {
             ),
           );
         }
+      };
+
+      ws.addEventListener("message", (event) => {
+        let msg: { type?: string; data?: Record<string, unknown> };
+        try {
+          const raw =
+            typeof event.data === "string"
+              ? event.data
+              : Buffer.from(event.data as ArrayBuffer).toString("utf8");
+          if (raw.length > 0 && raw.charCodeAt(0) === 0) return;
+          msg = JSON.parse(raw) as typeof msg;
+        } catch {
+          return;
+        }
+
+        // The backend can finish before the /prompt response reaches us. Buffer
+        // those events until promptId is known so a fast job cannot be lost.
+        if (promptId === null) {
+          pendingMessages.push(msg);
+          return;
+        }
+        handleMessage(msg);
       });
+
+      const submitPrompt = async () => {
+        if (promptStarted || settled) return;
+        promptStarted = true;
+        try {
+          promptId = await this.queuePrompt(workflow, clientId, signal);
+          // The POST may have completed after our timeout fired. Interrupt once
+          // more now that Comfy definitely accepted this prompt.
+          if (settled) {
+            this.interrupt();
+            return;
+          }
+          for (const msg of pendingMessages.splice(0)) handleMessage(msg);
+        } catch (e) {
+          finishErr(e instanceof Error ? e : new ComfyUIGenerationError(String(e)));
+        }
+      };
+
+      ws.addEventListener("open", () => void submitPrompt());
+      // Some injected/test WebSocket implementations are already open.
+      if (ws.readyState === 1) queueMicrotask(() => void submitPrompt());
     });
+  }
+
+  private interrupt(): void {
+    void this.fetchFn(this.path("/interrupt"), {
+      method: "POST",
+      headers: this.authHeaders(),
+    }).catch(() => undefined);
   }
 
   private async collectImages(

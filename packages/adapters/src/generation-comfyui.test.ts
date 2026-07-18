@@ -149,6 +149,85 @@ describe("ComfyUIGenerationAdapter.run", () => {
     expect(result.images[0]!.data.equals(png)).toBe(true);
   });
 
+  it("opens websocket before queueing and keeps completion events received before prompt response", async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+
+    class ConnectingWebSocket extends FakeWebSocket {
+      readyState = 0;
+    }
+
+    const fetchFn = mockFetchSequence([
+      async (url) => {
+        expect(url).toContain("/prompt");
+        const ws = FakeWebSocket.instances[0]!;
+        expect(ws.readyState).toBe(1);
+        ws.emit("message", {
+          type: "executed",
+          data: {
+            prompt_id: "pid-fast",
+            node: "9",
+            output: { images: [{ filename: "fast.png", type: "output" }] },
+          },
+        });
+        ws.emit("message", {
+          type: "execution_success",
+          data: { prompt_id: "pid-fast" },
+        });
+        return Response.json({ prompt_id: "pid-fast" });
+      },
+      async (url) => {
+        expect(url).toContain("/view?");
+        return new Response(png, { status: 200 });
+      },
+    ]);
+
+    const adapter = new ComfyUIGenerationAdapter({
+      backend: "local",
+      baseUrl: "http://127.0.0.1:8188",
+      fetch: fetchFn as unknown as typeof fetch,
+      WebSocket: ConnectingWebSocket as unknown as typeof WebSocket,
+      timeoutMs: 5000,
+    });
+
+    const runPromise = adapter.run({ workflow: {}, inputImages: [] });
+    await vi.waitFor(() => expect(FakeWebSocket.instances.length).toBe(1));
+    expect(fetchFn).not.toHaveBeenCalled();
+
+    const ws = FakeWebSocket.instances[0]!;
+    ws.readyState = 1;
+    ws.emit("open", "");
+
+    await expect(runPromise).resolves.toMatchObject({
+      images: [{ filename: "fast.png" }],
+    });
+  });
+
+  it("interrupts the backend when a run times out", async () => {
+    const fetchFn = mockFetchSequence([
+      async (url) => {
+        expect(url).toContain("/prompt");
+        return Response.json({ prompt_id: "pid-timeout" });
+      },
+      async (url, init) => {
+        expect(url).toContain("/interrupt");
+        expect(init?.method).toBe("POST");
+        return Response.json({});
+      },
+    ]);
+    const adapter = new ComfyUIGenerationAdapter({
+      backend: "local",
+      baseUrl: "http://127.0.0.1:8188",
+      fetch: fetchFn as unknown as typeof fetch,
+      WebSocket: FakeWebSocket as unknown as typeof WebSocket,
+      timeoutMs: 10,
+    });
+
+    await expect(adapter.run({ workflow: {}, inputImages: [] })).rejects.toThrow(
+      /生成超时/,
+    );
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
   it("cloud: treats empty node_errors as success", async () => {
     const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
     const fetchFn = mockFetchSequence([

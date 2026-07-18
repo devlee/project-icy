@@ -10,9 +10,11 @@ import { runSingleGenerationTask } from "./run-single";
 import {
   cancelGenerationTask,
   createSingleGenerationTask,
+  failInterruptedGenerationTasks,
   GenerationTaskError,
   getGenerationTask,
   listGenerationTasks,
+  listQueuedGenerationTasks,
   markTaskFailed,
   markTaskRunning,
   retryGenerationTask,
@@ -101,6 +103,34 @@ describe("list / cancel", () => {
     markTaskRunning(db, b.id);
     expect(() => cancelGenerationTask(db, b.id)).toThrow(/排队中/);
   });
+
+  it("orders runnable work by priority and fails stale running tasks on restart", () => {
+    const batchPriority = createSingleGenerationTask(db, {
+      characterId,
+      seedStrategy: { kind: "fixed", seed: 1 },
+      priority: 0,
+    });
+    const interactive = createSingleGenerationTask(db, {
+      characterId,
+      seedStrategy: { kind: "fixed", seed: 2 },
+      priority: 10,
+    });
+    const stale = createSingleGenerationTask(db, {
+      characterId,
+      seedStrategy: { kind: "fixed", seed: 3 },
+    });
+    markTaskRunning(db, stale.id);
+
+    expect(listQueuedGenerationTasks(db).map((task) => task.id)).toEqual([
+      interactive.id,
+      batchPriority.id,
+    ]);
+    expect(failInterruptedGenerationTasks(db)).toEqual([stale.id]);
+    expect(getGenerationTask(db, stale.id)).toMatchObject({
+      status: "failed",
+      error: expect.stringContaining("worker 已重启"),
+    });
+  });
 });
 
 describe("retryGenerationTask", () => {
@@ -121,6 +151,18 @@ describe("retryGenerationTask", () => {
     });
     expect(retried.params.outputKeys).toBeUndefined();
     expect(retried.params.seedStrategy).toEqual({ kind: "fixed", seed: 3 });
+    expect(retried.params.seeds).toEqual(task.params.seeds);
+  });
+
+  it("materializes random seeds once and preserves them when retried", () => {
+    const task = createSingleGenerationTask(db, {
+      characterId,
+      seedStrategy: { kind: "random", count: 3 },
+    });
+    expect(task.params.seeds).toHaveLength(3);
+    markTaskRunning(db, task.id);
+    markTaskFailed(db, task.id, "boom");
+    expect(retryGenerationTask(db, task.id).params.seeds).toEqual(task.params.seeds);
   });
 
   it("rejects retry of running tasks", () => {

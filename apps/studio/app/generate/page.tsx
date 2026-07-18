@@ -1,23 +1,14 @@
-import { defaultWorkflowRegistry, listCharacters, listGenerationTasks } from "@icy/core"
+import {
+  defaultWorkflowRegistry,
+  listCharacters,
+  listGenerationTasks,
+  listSeries,
+} from "@icy/core"
 
 export const dynamic = "force-dynamic"
 
-import { Badge } from "@/components/ui/badge"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemGroup,
-  ItemTitle,
-} from "@/components/ui/item"
 import { getDb } from "@/lib/db"
+import { BatchSeries } from "./batch-series"
 import { PairTaskForm } from "./pair-task-form"
 import { SingleTaskForm } from "./single-task-form"
 import { TaskQueue, type TaskQueueItem } from "./task-queue"
@@ -57,6 +48,15 @@ export default function GeneratePage() {
     },
     createdAt: t.createdAt.toISOString(),
   }))
+  const characterNames = new Map(characters.map((character) => [character.id, character.name]))
+  const batchSeries = listSeries(db).map((row) => ({
+    id: row.id,
+    name: row.name,
+    characterName: characterNames.get(row.characterId) ?? "未知角色",
+    scheduleCron: row.scheduleCron,
+    active: row.active,
+    perBatch: row.batchConfig?.perBatch ?? 0,
+  }))
 
   return (
     <main className="grid flex-1 gap-4 p-4 lg:grid-cols-[minmax(360px,480px)_1fr]">
@@ -68,29 +68,14 @@ export default function GeneratePage() {
       <div className="flex flex-col gap-4">
         <TaskQueue initialTasks={tasks} />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              批次系列
-              <Badge variant="outline" className="font-normal">
-                下一阶段
-              </Badge>
-            </CardTitle>
-            <CardDescription>定时批次挂在系列下，按因子池随机组合</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ItemGroup className="gap-1">
-              <Item size="sm">
-                <ItemContent>
-                  <ItemTitle className="text-muted-foreground">暂无系列</ItemTitle>
-                </ItemContent>
-                <ItemActions>
-                  <Badge variant="secondary">未启用</Badge>
-                </ItemActions>
-              </Item>
-            </ItemGroup>
-          </CardContent>
-        </Card>
+        <BatchSeries
+          characters={characters.map((character) => ({
+            id: character.id,
+            name: character.name,
+            status: character.status,
+          }))}
+          series={batchSeries}
+        />
       </div>
     </main>
   )

@@ -60,7 +60,13 @@ function stars(rating: number | null) {
 function isTypingTarget(el: EventTarget | null) {
   if (!(el instanceof HTMLElement)) return false
   const tag = el.tagName
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    tag === "BUTTON" ||
+    el.isContentEditable
+  )
 }
 
 const shortcuts = [
@@ -220,6 +226,7 @@ export function ReviewWorkbench({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
       if (isTypingTarget(e.target)) return
       if (busy) return
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key
@@ -269,7 +276,7 @@ export function ReviewWorkbench({
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button render={<Link href="/generate" />}>
+            <Button render={<Link href="/generate" />} nativeButton={false}>
               <Sparkles data-icon="inline-start" />
               去生成中心
             </Button>

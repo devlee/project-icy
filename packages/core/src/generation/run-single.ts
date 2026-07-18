@@ -71,7 +71,9 @@ export async function runSingleGenerationTask(
     Boolean(anchor),
     task.params.animeWorkflowId,
   );
-  const seeds = expandSeeds(task.params.seedStrategy);
+  const seeds = task.params.seeds?.length
+    ? task.params.seeds
+    : expandSeeds(task.params.seedStrategy);
   const userPrompt = buildUserPrompt(character.tagline, task.params.extraPrompt);
   const outputKeys: string[] = [];
 
