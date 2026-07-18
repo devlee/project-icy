@@ -1,0 +1,15 @@
+docs/
+
+# dependencies & build
+node_modules/
+.pnpm-store/
+.next/
+dist/
+*.tsbuildinfo
+
+# local data (never commit)
+content/
+*.db
+*.db-journal
+.env
+.env.*

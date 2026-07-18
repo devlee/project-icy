@@ -1,0 +1,51 @@
+---
+description: project-icy 开发规范：架构依赖规则、技术约定、迭代流程
+alwaysApply: true
+---
+
+# project-icy 开发规范
+
+单人本地工具优先：无认证、无多租户。产品设计见 `docs/product-design.md`（本地，未入库），愿景见 `docs/whitepaper.md`。
+
+## 架构：轻量清晰架构（Ports & Adapters）
+
+依赖方向只允许由外向内，**禁止反向**：
+
+```
+apps/studio, apps/portal  →  @icy/adapters  →  @icy/core  →  @icy/shared
+```
+
+- **@icy/shared**（最内层）：纯类型与枚举，零运行时依赖
+- **@icy/core**：数据模型（Drizzle schema）、workflow registry、成对生成编排、**端口接口**（`src/ports/`：Storage/Generation/Queue）；禁止 import 任何具体基础设施（fs 路径、HTTP 客户端、云 SDK）
+- **@icy/adapters**：端口的具体实现（本地 fs、ComfyUI、进程内队列；阶段 4 增加 R2/serverless GPU/Redis 实现）
+- **apps**：只做组装与 UI，业务逻辑下沉到 core
+
+新增基础设施能力时：先在 `core/src/ports/` 定义接口，再到 adapters 写实现。不引入 Use Case 类 / DTO 映射层 / CQRS——单人项目不需要这些仪式。
+
+## 技术约定
+
+| 项 | 约定 |
+|----|------|
+| 包管理 | pnpm workspaces；新原生依赖须加入根 `package.json` 的 `onlyBuiltDependencies` |
+| 数据库 | SQLite + Drizzle，schema 只在 `packages/core/src/db/schema.ts`；**schema 变更必须 `pnpm db:generate` 并提交 `packages/core/drizzle/`**（运行时与测试都走迁移，`db:push` 仅限本地快速实验）；禁止第二套迁移机制 |
+| 测试 | Vitest；新增业务逻辑（core/adapters）须带测试；数据库测试用 `createDb(":memory:") + migrateDb`，不碰 `content/icy.db` |
+| Postgres 兼容 | 时间戳用 epoch 毫秒 `integer(timestamp_ms)`；枚举用 TEXT + `@icy/shared` 联合类型；不用 SQLite 独有 SQL |
+| 成对内容 | **PairSet 是基本单元**：数据模型与 UI 中二次元/真人图永远成对处理，不拆散 |
+| 长耗时任务 | 一律经 QueueAdapter 异步入队，禁止同步阻塞请求 |
+| 发布动作 | 对外平台发布只做「半自动」（准备素材+文案，人工执行最后一步），禁止全自动发布 |
+| 文件路径 | 数据库存 content 相对路径，经 StorageAdapter 解析；禁止硬编码绝对路径 |
+| 密钥 | 只放 `.env`（已 gitignore）；禁止入库、入前端代码 |
+
+## 迭代流程（每次功能/修复完成后）
+
+1. `CHANGELOG.md` 顶部 `[Unreleased]` 写 Added / Changed / Fixed
+2. 发版时：改根 `package.json` 的 `version`（唯一版本源，子包不 bump），`[Unreleased]` 改为 `[x.y.z] - 日期`
+3. 功能范围或架构变化 → 同步 `docs/product-design.md`；方向变化 → `docs/whitepaper.md`
+4. 提交前必须通过：`pnpm typecheck` + `pnpm test`；schema 变更还须 `pnpm db:generate` 且迁移文件已提交（CI 会检查漂移）
+
+## 禁止事项
+
+- 未经用户要求不执行 `git commit` / `git push`
+- 不扩大范围重构无关模块；不新增任务无关的 markdown
+- 不提交 `content/`、`*.db`、`.env`、生成图片
+- 商用内容只用原创角色；输出物含 AI 生成声明（合规红线，见白皮书 §6.1）
