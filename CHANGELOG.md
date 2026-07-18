@@ -16,5 +16,6 @@
 - CI：GitHub Actions（typecheck + test + 迁移漂移检查）
 - Studio UI（`apps/studio`）：Next.js 16 + Tailwind v4 + shadcn/ui（Nova 预设，Base UI），六个页面全部完成 UI 骨架（仪表盘、角色库、生成中心、筛选、后期、排期），静态数据待接入 `@icy/core`
 - Studio 深浅模式切换：`next-themes` + 顶栏切换按钮，默认跟随系统
+- 测试覆盖率：`@vitest/coverage-v8`，`pnpm test:coverage` 出终端 + HTML 报告；CI Test 步骤改为跑覆盖率（不设硬门槛）；当前 core 99% / adapters 100%（语句）
 - 设计 skills：`shadcn`（官方，`.agents/skills/`）、`ui-ux-pro-max`（`.cursor/skills/`）
 - 设计 skills：`frontend-design`（Anthropic）、`web-design-guidelines`（Vercel）

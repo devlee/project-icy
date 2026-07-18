@@ -6,6 +6,7 @@
   "scripts": {
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "test:coverage": "pnpm -r test:coverage",
     "db:generate": "pnpm --filter @icy/core db:generate",
     "db:push": "pnpm --filter @icy/core db:push"
   },

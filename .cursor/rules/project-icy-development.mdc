@@ -29,6 +29,7 @@ apps/studio, apps/portal  →  @icy/adapters  →  @icy/core  →  @icy/shared
 | 包管理 | pnpm workspaces；新原生依赖须加入根 `package.json` 的 `onlyBuiltDependencies` |
 | 数据库 | SQLite + Drizzle，schema 只在 `packages/core/src/db/schema.ts`；**schema 变更必须 `pnpm db:generate` 并提交 `packages/core/drizzle/`**（运行时与测试都走迁移，`db:push` 仅限本地快速实验）；禁止第二套迁移机制 |
 | 测试 | Vitest；新增业务逻辑（core/adapters）须带测试；数据库测试用 `createDb(":memory:") + migrateDb`，不碰 `content/icy.db` |
+| 覆盖率 | `pnpm test:coverage`（CI 每次输出）；**不设硬门槛**，纯类型/桶导出文件在 vitest.config 中排除 |
 | Postgres 兼容 | 时间戳用 epoch 毫秒 `integer(timestamp_ms)`；枚举用 TEXT + `@icy/shared` 联合类型；不用 SQLite 独有 SQL |
 | 成对内容 | **PairSet 是基本单元**：数据模型与 UI 中二次元/真人图永远成对处理，不拆散 |
 | 长耗时任务 | 一律经 QueueAdapter 异步入队，禁止同步阻塞请求 |
