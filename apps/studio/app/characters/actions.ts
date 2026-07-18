@@ -1,7 +1,10 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import {
   CharacterError,
+  CharacterImageError,
+  addCharacterImage,
   archiveCharacter,
   createCharacter,
   updateCharacter,
@@ -10,6 +13,7 @@ import type { CharacterOrigin, CharacterStatus } from "@icy/shared";
 import { CHARACTER_ORIGINS, CHARACTER_STATUSES } from "@icy/shared";
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db";
+import { getStorage } from "@/lib/services";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -70,6 +74,53 @@ export async function archiveCharacterAction(id: string): Promise<ActionResult> 
     return { ok: true };
   } catch (e) {
     if (e instanceof CharacterError) return { ok: false, error: e.message };
+    throw e;
+  }
+}
+
+export async function uploadCharacterAnchorAction(
+  characterId: string,
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      return { ok: false, error: "请选择图片文件" };
+    }
+    if (!file.type.startsWith("image/")) {
+      return { ok: false, error: "仅支持图片文件" };
+    }
+    if (file.size > 12 * 1024 * 1024) {
+      return { ok: false, error: "图片不能超过 12MB" };
+    }
+
+    const ext =
+      file.name.includes(".") && file.name.lastIndexOf(".") > 0
+        ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase()
+        : ".png";
+    const safeExt = [".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(ext)
+      ? ext
+      : ".png";
+    const key = `characters/${characterId}/anchors/anime/${randomBytes(10).toString("hex")}${safeExt}`;
+    const bytes = Buffer.from(await file.arrayBuffer());
+    await getStorage().put(key, bytes);
+
+    addCharacterImage(getDb(), {
+      characterId,
+      kind: "anchor",
+      form: "anime",
+      filePath: key,
+      isPrimary: true,
+      note: file.name,
+    });
+
+    revalidatePath("/characters");
+    revalidatePath("/generate");
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof CharacterImageError || e instanceof CharacterError) {
+      return { ok: false, error: e.message };
+    }
     throw e;
   }
 }

@@ -8,9 +8,10 @@ coverage/
 dist/
 *.tsbuildinfo
 
-# local data (never commit)
-content/
+# local data (never commit; root only — do not match apps/**/content/)
+/content/
 *.db
 *.db-journal
 .env
 .env.*
+!.env.example

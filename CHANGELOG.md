@@ -22,3 +22,14 @@
 - 角色库接真库：`@icy/core` 角色 CRUD（list/create/update/archive）+ 测试；Studio Server Actions + `/characters` 读写 `content/icy.db`（启动时 migrate）
 - 角色来源划分：`origin`（`original` / `ip_reference`）+ `ipSource`；创建表单与列表筛选；迁移 `0001_*`；研究清单 `docs/anime-character-research.md`
 - Studio REST：`GET/POST /api/characters`（列表 / 创建）
+- ComfyUI `GenerationAdapter`（`@icy/adapters`）：`ping` + `run`（HTTP `/prompt` + WebSocket 进度 + `/view` 拉图）；mock 测试
+- Workflow 注入：`injectWorkflow` / stub 图 `packages/core/workflows/anime-txt2img.stub.json` + `defaultWorkflowRegistry`
+- Studio 单张生成烟测：`POST /api/generate`、`GET /api/comfyui/health`；侧栏真实连接状态；`.env.example`（`COMFYUI_URL`）
+- ComfyUI adapter 支持 **Comfy Cloud**：`COMFY_CLOUD_API_KEY` + `https://cloud.comfy.org`（`X-API-Key`、`/api/*`、WS `token`）；无 key 时仍走本机
+- 生成中心单张闭环：`generation_tasks` CRUD + `runSingleGenerationTask`；Studio `/generate` 真表单与队列轮询；成对/批次 UI 占位
+- Fixed: Comfy Cloud 成功响应里的空 `node_errors: {}` 被误判为拒绝工作流
+- 生成任务：失败/已取消可一键重试（保留原参数，重新入队）
+- 默认 anime workflow 改用 Comfy Cloud 可用的 `wai-illustrious-sdxl.safetensors`（832×1216）；执行错误信息更可读
+- 角色一致性：`character_images` CRUD（主基准）+ 角色库上传 anime 基准；`anime-txt2img-ipadapter` workflow；单张生成有参考图时自动上传并走 IP-Adapter；Studio `GET /api/content/[...path]` 预览
+- Fixed: IP-Adapter workflow 的 `weight_type` 改回 Cloud 合法值 `standard`（误用 Advanced 节点的 `linear` 会导致 400）
+- Changed: IP-Adapter 默认改为 `PLUS FACE`、weight `1.15`、`style transfer`；芙宁娜 tagline 改为 Illustrious 可用英文外观标签

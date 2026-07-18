@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useEffect, useState } from "react"
 import {
   CalendarDays,
   Gauge,
@@ -32,8 +33,36 @@ const pipeline = [
   { title: "排期", href: "/schedule", icon: CalendarDays },
 ]
 
+type ComfyHealth = {
+  ok: boolean
+  detail?: string
+  url?: string
+  backend?: "local" | "cloud"
+  hasApiKey?: boolean
+}
+
 export function StudioSidebar() {
   const pathname = usePathname()
+  const [comfy, setComfy] = useState<ComfyHealth | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const tick = async () => {
+      try {
+        const res = await fetch("/api/comfyui/health")
+        const data = (await res.json()) as ComfyHealth
+        if (!cancelled) setComfy(data)
+      } catch {
+        if (!cancelled) setComfy({ ok: false, detail: "unreachable" })
+      }
+    }
+    void tick()
+    const id = setInterval(() => void tick(), 15_000)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [])
 
   return (
     <Sidebar>
@@ -78,10 +107,29 @@ export function StudioSidebar() {
       <SidebarFooter className="px-4 py-3">
         <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-primary" />
-            ComfyUI 已连接
+            <span
+              className={
+                comfy?.ok
+                  ? "size-1.5 rounded-full bg-emerald-500"
+                  : comfy == null
+                    ? "size-1.5 rounded-full bg-muted-foreground/40"
+                    : "size-1.5 rounded-full bg-destructive"
+              }
+            />
+            {comfy == null
+              ? "ComfyUI 检测中…"
+              : comfy.ok
+                ? "ComfyUI 已连接"
+                : "ComfyUI 未连接"}
           </span>
-          <span>RTX 4090 · 队列 3</span>
+          <span className="truncate" title={comfy?.url}>
+            {comfy?.ok
+              ? (comfy.detail ?? "ready")
+              : (comfy?.detail ??
+                (comfy?.backend === "cloud" || !comfy?.hasApiKey
+                  ? "设置 COMFY_CLOUD_API_KEY"
+                  : "检查 COMFYUI_URL"))}
+          </span>
         </div>
       </SidebarFooter>
     </Sidebar>

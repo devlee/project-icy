@@ -209,9 +209,15 @@ export interface GenerationParams {
   factorIds: string[];
   /** Workflow registry ids for each form. */
   animeWorkflowId: string;
+  /**
+   * Real-form workflow id for pair tasks.
+   * Single-image tasks leave this empty and only use animeWorkflowId.
+   */
   realWorkflowId: string;
-  /** Extra prompt text appended after factor fragments. */
+  /** Extra prompt text appended after factor fragments / character tags. */
   extraPrompt?: string;
+  /** Relative storage keys written by a completed (or partial) run. */
+  outputKeys?: string[];
 }
 
 // ---------------------------------------------------------------------------

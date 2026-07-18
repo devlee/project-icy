@@ -14,8 +14,8 @@ AI 双形态内容工作室：同一原创角色「二次元 ↔ 真人」成对
 ```
 packages/core/src/db/schema.ts        # 全部数据模型（PairSet 为基本单元）
 packages/core/src/ports/              # Storage / Generation / Queue 端口接口
-packages/core/src/workflows/          # workflow registry（ComfyUI API JSON + 注入点）
-packages/adapters/src/                # 端口本地实现（云化时新增实现，不改 core）
+packages/core/src/workflows/          # registry + inject/load；JSON 图在 packages/core/workflows/
+packages/adapters/src/                # 端口本地实现（含 ComfyUI GenerationAdapter）
 content/                              # 本地数据：icy.db + 图片（勿提交）
 docs/                                 # whitepaper / product-design / FEATURES（本地，未入库）
 ```

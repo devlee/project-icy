@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@icy/adapters": "workspace:*",
     "@icy/core": "workspace:*",
     "@icy/shared": "workspace:*",
     "@base-ui/react": "^1.6.0",

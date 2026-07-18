@@ -26,6 +26,11 @@ import {
   CharacterOriginFilter,
   type OriginFilter,
 } from "./character-origin-filter"
+import { UploadAnimeAnchor } from "./upload-anime-anchor"
+
+function contentUrl(path: string) {
+  return `/api/content/${path.split("/").map(encodeURIComponent).join("/")}`
+}
 
 const STATUS_BADGE: Record<
   CharacterStatus,
@@ -44,17 +49,34 @@ const STATUS_LABEL: Record<CharacterStatus, string> = {
   archived: "封存",
 }
 
-function AnchorPair() {
+function AnimeAnchorPreview({ path }: { path: string | null }) {
+  if (path) {
+    return (
+      <div className="relative aspect-3/2 overflow-hidden rounded-lg border">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={contentUrl(path)}
+          alt="anime 主基准"
+          className="size-full object-cover"
+        />
+        <span className="absolute bottom-1 left-1 rounded bg-background/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          ANIME
+        </span>
+      </div>
+    )
+  }
   return (
-    <div className="grid aspect-3/2 grid-cols-[1fr_2px_1fr] overflow-hidden rounded-lg border">
-      <div className="flex items-center justify-center bg-muted">
-        <span className="font-mono text-[10px] text-muted-foreground">ANIME</span>
-      </div>
-      <div className="bg-primary" aria-hidden="true" />
-      <div className="flex items-center justify-center bg-accent">
-        <span className="font-mono text-[10px] text-muted-foreground">REAL</span>
-      </div>
-    </div>
+    <Empty className="aspect-3/2 rounded-lg border border-dashed p-4">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <UserRound />
+        </EmptyMedia>
+        <EmptyTitle className="text-sm">尚无 anime 基准</EmptyTitle>
+        <EmptyDescription className="text-xs">
+          上传参考图后，生成中心可用 IP-Adapter 锁定外貌
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   )
 }
 
@@ -114,27 +136,16 @@ export function CharactersGallery({
                   </span>
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                {c.hasDualAnchors ? (
-                  <AnchorPair />
-                ) : (
-                  <Empty className="aspect-3/2 rounded-lg border border-dashed p-4">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <UserRound />
-                      </EmptyMedia>
-                      <EmptyTitle className="text-sm">尚无双形态基准</EmptyTitle>
-                      <EmptyDescription className="text-xs">
-                        从生成结果中提升，或手动上传
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                )}
+              <CardContent className="flex flex-col gap-2">
+                <AnimeAnchorPreview path={c.animeAnchorPath} />
+                <UploadAnimeAnchor characterId={c.id} />
               </CardContent>
               <CardFooter className="flex-wrap gap-3 text-xs text-muted-foreground">
+                <span className="tabular-nums">
+                  基准 {c.animeAnchorPath ? "✓" : "—"}
+                </span>
                 <span className="tabular-nums">FaceID ×{c.faceIdRefCount}</span>
                 <span className="tabular-nums">LoRA ×{c.loraCount}</span>
-                <span className="tabular-nums">PairSet {c.pairSetCount}</span>
                 <div className="ml-auto">
                   <CharacterStatusSelect id={c.id} status={c.status} />
                 </div>

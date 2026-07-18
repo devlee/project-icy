@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@icy/core", "@icy/shared"],
+  transpilePackages: ["@icy/adapters", "@icy/core", "@icy/shared"],
   serverExternalPackages: ["better-sqlite3"],
 };
 
