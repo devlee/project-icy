@@ -6,7 +6,7 @@
 
 AI 双形态内容工作室：同一原创角色「二次元 ↔ 真人」成对生成、筛选、后期、发布。pnpm monorepo，轻量清晰架构（依赖方向 apps → adapters → core → shared，端口在 core，切勿反向）。
 
-- **Studio**（`apps/studio`）：本地创作工作台，Next.js 全栈 + 伴生 worker；UI 暂缓，先出设计（用 `.cursor/skills/frontend-design`，审计用 `web-design-guidelines`）
+- **Studio**（`apps/studio`）：本地创作工作台，Next.js + shadcn/ui（**Nova 预设，Base UI 底层**，设计已定稿见 `docs/studio-design.md`）；六页 UI 骨架已完成，改 UI 遵循 `.agents/skills/shadcn` 规则
 - **Portal**（`apps/portal`）：静态门户，经 Studio「发布」动作驱动，契约为 `@icy/shared` 的 `PortalContentPack`
 
 ## 关键路径
